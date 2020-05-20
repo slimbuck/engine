@@ -1516,9 +1516,70 @@ pc.programlib.standard = {
 
         return {
             attributes: attributes,
-            vshader: vshader,
-            fshader: fshader,
+            vshader: this.preprocess(vshader),
+            fshader: this.preprocess(fshader),
             tag: pc.SHADERTAG_MATERIAL
         };
+    },
+
+    // apply simple c preprocessing to the shader source. supported macros are as follows:
+    // #define SOMETHING
+    // #undef SOMETHING
+    // #ifdef SOMETHING
+    // #ifndef SOMETHING
+    // #else
+    // #endif
+    preprocess: function (source) {
+        var lines = source.split('\n');
+        var output = [];
+        var defines = [];
+        var stack = [];
+        var active = true;
+        var idx;
+        lines.forEach(function (line) {
+            var l = line.trim().split(' ');
+            switch (l[0]) {
+                case '#define':
+                    if (l.length >= 2) {
+                        defines.push(l[1]);
+                    }
+                    break;
+                case '#undef':
+                    if (l.length >= 2) {
+                        idx = defines.lastIndexOf(l[1]);
+                        if (idx !== -1) {
+                            defines.splice(idx, 1);
+                        }
+                    }
+                    break;
+                case '#ifdef':
+                    if (l.length >= 2) {
+                        stack.push(active);
+                        active = defines.indexOf(l[1]) !== -1;
+                    }
+                    break;
+                case '#ifndef':
+                    if (l.length >= 2) {
+                        stack.push(active);
+                        active = defines.indexOf(l[1]) === -1;
+                    }
+                    break;
+                case '#else':
+                    active = !active;
+                    break;
+                case '#endif':
+                    if (stack.length > 0) {
+                        active = stack.pop();
+                    }
+                    break;
+                default:
+                    // non-preprocessor macro
+                    if (active) {
+                        output.push(line);
+                    }
+                    break;
+            }
+        });
+        return output.join('\n');
     }
 };
