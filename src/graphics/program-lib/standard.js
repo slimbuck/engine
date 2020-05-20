@@ -1510,76 +1510,104 @@ pc.programlib.standard = {
         if (code.includes("ccSpecularity")) structCode += "vec3 ccSpecularity;\n";
         if (code.includes("ccGlossiness")) structCode += "float ccGlossiness=0.9;\n";
 
-        code = codeBegin + structCode + code;
-
-        fshader = code;
+        fshader = codeBegin + structCode + code;
 
         return {
             attributes: attributes,
             vshader: this.preprocess(vshader),
             fshader: this.preprocess(fshader),
-            tag: pc.SHADERTAG_MATERIAL
+            tag: pc.SHADERTAG_MATERIAL,
+            vshaderOrig: vshader,
+            fshaderOrig: fshader
         };
     },
 
     // apply simple c preprocessing to the shader source. supported macros are as follows:
-    // #define SOMETHING
+    // #define SOMETHING ANOTHER_THING
     // #undef SOMETHING
     // #ifdef SOMETHING
     // #ifndef SOMETHING
     // #else
     // #endif
     preprocess: function (source) {
+        var self = this;
         var lines = source.split('\n');
         var output = [];
-        var defines = [];
-        var stack = [];
+        var defines = {};
+        var stack = [true];
         var active = true;
-        var idx;
+        var allTrue = function (array) {
+            return array.reduce(function (a, v) {
+                return a && v;
+            }, true);
+        };
         lines.forEach(function (line) {
             var l = line.trim().split(' ');
             switch (l[0]) {
                 case '#define':
-                    if (l.length >= 2) {
-                        defines.push(l[1]);
+                    if (active) {
+                        if (l.length === 2) {
+                            defines[l[1]] = null;
+                        } else if (l.length > 2) {
+                            defines[l[1]] = l.slice(2).join(' ');
+                        }
                     }
                     break;
                 case '#undef':
-                    if (l.length >= 2) {
-                        idx = defines.lastIndexOf(l[1]);
-                        if (idx !== -1) {
-                            defines.splice(idx, 1);
+                    if (active) {
+                        if (l.length === 2) {
+                            delete defines[l[1]];
                         }
                     }
                     break;
                 case '#ifdef':
-                    if (l.length >= 2) {
-                        stack.push(active);
-                        active = defines.indexOf(l[1]) !== -1;
+                    if (l.length === 2) {
+                        stack.push(defines.hasOwnProperty(l[1]));
+                        active = allTrue(stack);
                     }
                     break;
                 case '#ifndef':
-                    if (l.length >= 2) {
-                        stack.push(active);
-                        active = defines.indexOf(l[1]) === -1;
+                    if (l.length === 2) {
+                        stack.push(!defines.hasOwnProperty(l[1]));
+                        active = allTrue(stack);
                     }
                     break;
                 case '#else':
-                    active = !active;
+                    stack[stack.length - 1] = !stack[stack.length - 1];
+                    active = allTrue(stack);
                     break;
                 case '#endif':
-                    if (stack.length > 0) {
-                        active = stack.pop();
+                    if (stack.length > 1) {
+                        stack.pop();
                     }
+                    active = allTrue(stack);
                     break;
                 default:
                     // non-preprocessor macro
                     if (active) {
-                        output.push(line);
+                        output.push(self.applySubs(line, defines));
                     }
                     break;
             }
         });
         return output.join('\n');
+    },
+
+    applySubs: function (text, defines) {
+        while (true) {
+            var done = true;
+            for (var define in defines) {
+                var loc = text.indexOf(define);
+                if (loc !== -1) {
+                    text = text.substring(0, loc) + defines[define] + text.substring(loc + define.length);
+                    done = false;
+                    break;
+                }
+            }
+            if (done) {
+                break;
+            }
+        }
+        return text;
     }
 };
