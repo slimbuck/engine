@@ -6,6 +6,7 @@ import {
     ADDRESS_CLAMP_TO_EDGE,
     BLENDEQUATION_ADD,
     BLENDMODE_ZERO, BLENDMODE_ONE,
+    BUFFER_DYNAMIC, BUFFER_GPUDYNAMIC, BUFFER_STATIC, BUFFER_STREAM,
     CLEARFLAG_COLOR, CLEARFLAG_DEPTH, CLEARFLAG_STENCIL,
     CULLFACE_BACK, CULLFACE_NONE,
     FILTER_NEAREST, FILTER_LINEAR, FILTER_NEAREST_MIPMAP_NEAREST, FILTER_NEAREST_MIPMAP_LINEAR,
@@ -986,8 +987,8 @@ Object.assign(GraphicsDevice.prototype, {
 
         // Recreate buffer objects and reupload buffer data to the GPU
         for (i = 0, len = this.buffers.length; i < len; i++) {
-            this.buffers[i].bufferId = undefined;
-            this.buffers[i].unlock();
+            this.buffers[i].bufferId = null;
+            this.buffers[i].needsUpload = true;
         }
         this.boundVao = null;
         this.boundElementBuffer = null;
@@ -1775,6 +1776,42 @@ Object.assign(GraphicsDevice.prototype, {
                (typeof ImageBitmap !== 'undefined' && texture instanceof ImageBitmap);
     },
 
+    uploadVertexBuffer: function (vertexBuffer) {
+        if (!vertexBuffer.needsUpload)
+            return;
+
+        var gl = this.gl;
+
+        var glUsage;
+        switch (vertexBuffer.usage) {
+            case BUFFER_STATIC:
+                glUsage = gl.STATIC_DRAW;
+                break;
+            case BUFFER_DYNAMIC:
+                glUsage = gl.DYNAMIC_DRAW;
+                break;
+            case BUFFER_STREAM:
+                glUsage = gl.STREAM_DRAW;
+                break;
+            case BUFFER_GPUDYNAMIC:
+                if (this.webgl2) {
+                    glUsage = gl.DYNAMIC_COPY;
+                } else {
+                    glUsage = gl.STATIC_DRAW;
+                }
+                break;
+        }
+
+        if (!vertexBuffer.bufferId) {
+            vertexBuffer.bufferId = gl.createBuffer();
+        }
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer.bufferId);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexBuffer.storage, glUsage);
+
+        vertexBuffer.needsUpload = false;
+    },
+
     uploadTexture: function (texture) {
         var gl = this.gl;
 
@@ -2166,6 +2203,9 @@ Object.assign(GraphicsDevice.prototype, {
                 // bind buffer
                 vertexBuffer = vertexBuffers[i];
                 gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer.bufferId);
+                if (!vertexBuffer.bufferId) {
+                    console.error('null vb');
+                }
 
                 // for each attribute
                 elements = vertexBuffer.format.elements;
@@ -2363,6 +2403,10 @@ Object.assign(GraphicsDevice.prototype, {
             } else {
                 gl.drawArrays(mode, first, count);
             }
+        }
+
+        if (gl.getError() !== gl.NO_ERROR) {
+            console.log('error');
         }
 
         if (this.webgl2 && this.transformFeedbackBuffer) {
@@ -3086,8 +3130,10 @@ Object.assign(GraphicsDevice.prototype, {
      * @param {pc.VertexBuffer} vertexBuffer - The vertex buffer to assign to the device.
      */
     setVertexBuffer: function (vertexBuffer) {
-
         if (vertexBuffer) {
+            if (vertexBuffer.needsUpload) {
+                this.uploadVertexBuffer(vertexBuffer);
+            }
             this.vertexBuffers.push(vertexBuffer);
         }
     },

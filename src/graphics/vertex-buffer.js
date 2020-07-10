@@ -1,4 +1,4 @@
-import { BUFFER_DYNAMIC, BUFFER_GPUDYNAMIC, BUFFER_STATIC, BUFFER_STREAM } from './graphics.js';
+import { BUFFER_STATIC } from './graphics.js';
 
 var id = 0;
 
@@ -24,6 +24,9 @@ function VertexBuffer(graphicsDevice, format, numVertices, usage, initialData) {
     // Calculate the size. If format contains verticesByteSize (non-interleaved format), use it
     this.numBytes = format.verticesByteSize ? format.verticesByteSize : format.size * numVertices;
     graphicsDevice._vram.vb += this.numBytes;
+
+    this.needsUpload = true;
+    this.bufferId = null;
 
     // Create the WebGL vertex buffer object
     this.device = graphicsDevice;
@@ -115,35 +118,7 @@ Object.assign(VertexBuffer.prototype, {
      * memory can be returned to the control of the graphics driver.
      */
     unlock: function () {
-        // Upload the new vertex data
-        var gl = this.device.gl;
-
-        if (!this.bufferId) {
-            this.bufferId = gl.createBuffer();
-        }
-
-        var glUsage;
-        switch (this.usage) {
-            case BUFFER_STATIC:
-                glUsage = gl.STATIC_DRAW;
-                break;
-            case BUFFER_DYNAMIC:
-                glUsage = gl.DYNAMIC_DRAW;
-                break;
-            case BUFFER_STREAM:
-                glUsage = gl.STREAM_DRAW;
-                break;
-            case BUFFER_GPUDYNAMIC:
-                if (this.device.webgl2) {
-                    glUsage = gl.DYNAMIC_COPY;
-                } else {
-                    glUsage = gl.STATIC_DRAW;
-                }
-                break;
-        }
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferId);
-        gl.bufferData(gl.ARRAY_BUFFER, this.storage, glUsage);
+        this.needsUpload = true;
     },
 
     /**
