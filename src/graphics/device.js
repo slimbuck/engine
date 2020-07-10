@@ -333,7 +333,7 @@ var GraphicsDevice = function (canvas, options) {
     this.gl = gl;
 
     // init polyfill for VAOs
-    setupVertexArrayObject(gl);
+    window.setupVertexArrayObject(gl);
 
     canvas.addEventListener("webglcontextlost", this._contextLostHandler, false);
     canvas.addEventListener("webglcontextrestored", this._contextRestoredHandler, false);
@@ -2196,6 +2196,10 @@ Object.assign(GraphicsDevice.prototype, {
             var gl = this.gl;
             vao = gl.createVertexArray();
             gl.bindVertexArray(vao);
+
+            // don't capture index buffer in VAO
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            this.boundElementBuffer = null;
 
             var e, elements;
             for (i = 0; i < vertexBuffers.length; i++) {
