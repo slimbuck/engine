@@ -9,7 +9,7 @@ import { Vec3 } from '../../math/vec3.js';
 import { BoundingBox } from '../../shape/bounding-box.js';
 
 import {
-    typedArrayToType,
+    typedArrayTypes, typedArrayToType,
     ADDRESS_CLAMP_TO_EDGE, ADDRESS_MIRRORED_REPEAT, ADDRESS_REPEAT,
     BUFFER_STATIC,
     CULLFACE_NONE, CULLFACE_BACK,
@@ -92,8 +92,8 @@ var getComponentSizeInBytes = function (componentType) {
     }
 };
 
-var getAccessorDataType = function (accessor) {
-    switch (accessor.componentType) {
+var getComponentDataType = function (componentType) {
+    switch (componentType) {
         case 5120: return Int8Array;
         case 5121: return Uint8Array;
         case 5122: return Int16Array;
@@ -123,7 +123,7 @@ var getAccessorData = function (accessor, bufferViews, buffers) {
     var byteOffset = typedArray.byteOffset + accessorByteOffset + bufferViewByteOffset;
     var length = count * getNumComponents(accessor.type);
 
-    var dataType = getAccessorDataType(accessor);
+    var dataType = getComponentDataType(accessor.componentType);
     return dataType ? new dataType(typedArray.buffer, byteOffset, length) : null;
 };
 
@@ -171,9 +171,18 @@ var generateIndices = function (numVertices) {
     return dummyIndices;
 };
 
-var generateNormals = function (sourceDesc, positions, indices) {
-    var numVertices = positions.length / 3;
+var generateNormals = function (sourceDesc, indices) {
+    // get positions
+    var p = sourceDesc[SEMANTIC_POSITION];
+    if (!p || p.components !== 3 || p.size !== p.stride) {
+        // NOTE: normal generation only works on tightly packed positions
+        return;
+    }
 
+    var positions = new typedArrayTypes[p.type](p.buffer, p.offset, p.count * 3);
+    var numVertices = p.count;
+
+    // generate indices if necessary
     if (!indices) {
         indices = generateIndices(numVertices);
     }
@@ -242,7 +251,6 @@ var flipTexCoordVs = function (vertexBuffer) {
 };
 
 var createVertexBufferInternal = function (device, sourceDesc, disableFlipV) {
-
     var positionDesc = sourceDesc[SEMANTIC_POSITION];
     var numVertices = positionDesc.count;
 
@@ -378,9 +386,7 @@ var createVertexBuffer = function (device, attributes, indices, accessors, buffe
 
     // generate normals if they're missing (this should probably be a user option)
     if (!sourceDesc.hasOwnProperty(SEMANTIC_NORMAL)) {
-        // NOTE: this assumes the position data is tightly packed (not interleaved)
-        var positions = getAccessorData(accessors[attributes.POSITION], bufferViews, buffers);
-        generateNormals(sourceDesc, positions, indices);
+        generateNormals(sourceDesc, indices);
     }
 
     return createVertexBufferInternal(device, sourceDesc, disableFlipV);
@@ -464,9 +470,7 @@ var createVertexBufferDraco = function (device, outputGeometry, extDraco, decode
 
     // generate normals if they're missing (this should probably be a user option)
     if (!sourceDesc.hasOwnProperty(SEMANTIC_NORMAL)) {
-        // NOTE: this assumes the position data is tightly packed (not interleaved)
-        var positions = getAccessorData(accessors[attributes.POSITION], bufferViews, buffers);
-        generateNormals(sourceDesc, positions, indices);
+        generateNormals(sourceDesc, indices);
     }
 
     return createVertexBufferInternal(device, sourceDesc, disableFlipV);
@@ -685,7 +689,7 @@ var createMesh = function (device, gltfMesh, accessors, bufferViews, buffers, ca
                 if (target.hasOwnProperty('POSITION')) {
 
                     accessor = accessors[target.POSITION];
-                    dataType = getAccessorDataType(accessor);
+                    dataType = getComponentDataType(accessor.componentType);
 
                     options.deltaPositions = getAccessorData(accessor, bufferViews, buffers);
                     options.deltaPositionsType = typedArrayToType[dataType.name];
@@ -705,7 +709,7 @@ var createMesh = function (device, gltfMesh, accessors, bufferViews, buffers, ca
                 if (target.hasOwnProperty('NORMAL')) {
 
                     accessor = accessors[target.NORMAL];
-                    dataType = getAccessorDataType(accessor);
+                    dataType = getComponentDataType(accessor.componentType);
 
                     options.deltaNormals = getAccessorData(accessor, bufferViews, buffers);
                     options.deltaNormalsType = typedArrayToType[dataType.name];
@@ -1308,6 +1312,34 @@ var createNodes = function (gltf, options) {
     return nodes;
 };
 
+var createScenes = function (gltf, nodes) {
+
+    var scenes = [];
+    var count = gltf.scenes.length;
+
+    // if there's a single scene with a single node in it, don't create wrapper nodes
+    if (count === 1 && gltf.scenes[0].nodes.length === 1) {
+        var nodeIndex = gltf.scenes[0].nodes[0];
+        scenes.push(nodes[nodeIndex]);
+    } else {
+
+        // create root node per scene
+        for (var i = 0; i < count; i++) {
+            var scene = gltf.scenes[i];
+            var sceneRoot = new GraphNode(scene.name);
+
+            for (var n = 0; n < scene.nodes.length; n++) {
+                var childNode = nodes[scene.nodes[n]];
+                sceneRoot.addChild(childNode);
+            }
+
+            scenes.push(sceneRoot);
+        }
+    }
+
+    return scenes;
+};
+
 // create engine resources from the downloaded GLB data
 var createResources = function (device, gltf, buffers, textures, options, callback) {
 
@@ -1319,6 +1351,7 @@ var createResources = function (device, gltf, buffers, textures, options, callba
     }
 
     var nodes = createNodes(gltf, options);
+    var scenes = createScenes(gltf, nodes);
     var animations = createAnimations(gltf, nodes, buffers, options);
     var materials = createMaterials(gltf, gltf.textures ? gltf.textures.map(function (t) {
         return textures[t.source].resource;
@@ -1329,6 +1362,7 @@ var createResources = function (device, gltf, buffers, textures, options, callba
     var result = {
         'gltf': gltf,
         'nodes': nodes,
+        'scenes': scenes,
         'animations': animations,
         'textures': textures,
         'materials': materials,
@@ -1739,9 +1773,9 @@ GlbParser.parse = function (filename, data, device, options) {
 
 // create a pc.Model from the parsed GLB data structures
 GlbParser.createModel = function (glb, defaultMaterial) {
-    var createMeshInstance = function (model, mesh, skins, materials, node, gltfNode) {
-        var material = (mesh.materialIndex === undefined) ? defaultMaterial : materials[mesh.materialIndex];
 
+    var createMeshInstance = function (model, mesh, skins, skinInstances, materials, node, gltfNode) {
+        var material = (mesh.materialIndex === undefined) ? defaultMaterial : materials[mesh.materialIndex];
         var meshInstance = new MeshInstance(node, mesh, material);
 
         if (mesh.morph) {
@@ -1757,12 +1791,11 @@ GlbParser.createModel = function (glb, defaultMaterial) {
         }
 
         if (gltfNode.hasOwnProperty('skin')) {
-            var skin = skins[gltfNode.skin];
+            var skinIndex = gltfNode.skin;
+            var skin = skins[skinIndex];
             mesh.skin = skin;
 
-            var skinInstance = new SkinInstance(skin);
-            skinInstance.bones = skin.bones;
-
+            var skinInstance = skinInstances[skinIndex];
             meshInstance.skinInstance = skinInstance;
             model.skinInstances.push(skinInstance);
         }
@@ -1771,31 +1804,38 @@ GlbParser.createModel = function (glb, defaultMaterial) {
     };
 
     var model = new Model();
-    var i;
 
-    var rootNodes = [];
-    for (i = 0; i < glb.nodes.length; i++) {
-        var node = glb.nodes[i];
-        if (node.parent === null) {
-            rootNodes.push(node);
-        }
+    // create skinInstance for each skin
+    var s, skinInstances = [];
+    for (s = 0; s < glb.skins.length; s++) {
+        var skinInstance = new SkinInstance(glb.skins[s]);
+        skinInstance.bones = glb.skins[s].bones;
+        skinInstances.push(skinInstance);
+    }
 
-        var gltfNode = glb.gltf.nodes[i];
-        if (gltfNode.hasOwnProperty('mesh')) {
-            var meshGroup = glb.meshes[gltfNode.mesh];
-            for (var mi = 0; mi < meshGroup.length; mi++) {
-                createMeshInstance(model, meshGroup[mi], glb.skins, glb.materials, node, gltfNode);
-            }
+    // node hierarchy for the model
+    if (glb.scenes.length === 1) {
+        // use scene if only one
+        model.graph = glb.scenes[0];
+    } else {
+        // create group node for all scenes
+        model.graph = new GraphNode('SceneGroup');
+        for (s = 0; s < glb.scenes.length; s++) {
+            model.graph.addChild(glb.scenes[s]);
         }
     }
 
-    // set model root (create a group if there is more than one)
-    if (rootNodes.length === 1) {
-        model.graph = rootNodes[0];
-    } else {
-        model.graph = new GraphNode('SceneGroup');
-        for (i = 0; i < rootNodes.length; ++i) {
-            model.graph.addChild(rootNodes[i]);
+    // create mesh instance for meshes on nodes that are part of hierarchy
+    for (var i = 0; i < glb.nodes.length; i++) {
+        var node = glb.nodes[i];
+        if (node.root === model.graph) {
+            var gltfNode = glb.gltf.nodes[i];
+            if (gltfNode.hasOwnProperty('mesh')) {
+                var meshGroup = glb.meshes[gltfNode.mesh];
+                for (var mi = 0; mi < meshGroup.length; mi++) {
+                    createMeshInstance(model, meshGroup[mi], glb.skins, skinInstances, glb.materials, node, gltfNode);
+                }
+            }
         }
     }
 
