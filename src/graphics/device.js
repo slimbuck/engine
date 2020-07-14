@@ -2209,9 +2209,6 @@ Object.assign(GraphicsDevice.prototype, {
                 // bind buffer
                 vertexBuffer = vertexBuffers[i];
                 gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer.bufferId);
-                if (!vertexBuffer.bufferId) {
-                    console.error('null vb');
-                }
 
                 // for each attribute
                 elements = vertexBuffer.format.elements;
@@ -2409,10 +2406,6 @@ Object.assign(GraphicsDevice.prototype, {
             } else {
                 gl.drawArrays(mode, first, count);
             }
-        }
-
-        if (gl.getError() !== gl.NO_ERROR) {
-            console.log('error');
         }
 
         if (this.webgl2 && this.transformFeedbackBuffer) {
