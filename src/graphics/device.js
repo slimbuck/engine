@@ -1917,7 +1917,7 @@ Object.assign(GraphicsDevice.prototype, {
                     }
 
                     // Upload the image, canvas or video
-                    this.setUnpackFlipY(false);//texture._flipY);
+                    this.setUnpackFlipY(false);
                     this.setUnpackPremultiplyAlpha(texture._premultiplyAlpha);
                     gl.texImage2D(
                         gl.TEXTURE_2D,

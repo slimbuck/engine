@@ -346,7 +346,7 @@ var createVertexBufferInternal = function (device, sourceDesc, disableFlipV) {
         }
     }
 
-    if (!disableFlipV) {
+    if (disableFlipV) {
         flipTexCoordVs(vertexBuffer);
     }
 
@@ -747,7 +747,7 @@ var createMesh = function (device, gltfMesh, accessors, bufferViews, buffers, ca
     return meshes;
 };
 
-var createMaterial = function (gltfMaterial, textures, disableFlipV) {
+var createMaterial = function (gltfMaterial, textures) {
     // TODO: integrate these shader chunks into the native engine
     var glossChunk = [
         "#ifdef MAPFLOAT",
@@ -839,7 +839,7 @@ var createMaterial = function (gltfMaterial, textures, disableFlipV) {
         // texture coordinate V at load time.
         for (map = 0; map < maps.length; ++map) {
             material[maps[map] + 'MapTiling'] = new Vec2(scale[0], scale[1]);
-            material[maps[map] + 'MapOffset'] = new Vec2(offset[0], disableFlipV ? offset[1] : 1.0 - scale[1] - offset[1]);
+            material[maps[map] + 'MapOffset'] = new Vec2(offset[0], offset[1]);
         }
     };
 
@@ -1236,7 +1236,7 @@ var createMeshes = function (device, gltf, buffers, callback, disableFlipV) {
     });
 };
 
-var createMaterials = function (gltf, textures, options, disableFlipV) {
+var createMaterials = function (gltf, textures, options) {
     if (!gltf.hasOwnProperty('materials') || gltf.materials.length === 0) {
         return [];
     }
@@ -1249,7 +1249,7 @@ var createMaterials = function (gltf, textures, options, disableFlipV) {
         if (preprocess) {
             preprocess(gltfMaterial);
         }
-        var material = process(gltfMaterial, textures, disableFlipV);
+        var material = process(gltfMaterial, textures);
         if (postprocess) {
             postprocess(gltfMaterial, material);
         }
@@ -1362,7 +1362,7 @@ var createResources = function (device, gltf, buffers, textures, options, callba
     var animations = createAnimations(gltf, nodes, buffers, options);
     var materials = createMaterials(gltf, gltf.textures ? gltf.textures.map(function (t) {
         return textures[t.source].resource;
-    }) : [], options, disableFlipV);
+    }) : [], options);
     var meshes = createMeshes(device, gltf, buffers, callback, disableFlipV);
     var skins = createSkins(device, gltf, nodes, buffers);
 
