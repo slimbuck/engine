@@ -17,6 +17,6 @@ vec2 getUv0() {
 }
 #else
 vec2 getUv0() {
-    return vec2(vertex_texCoord0.x, 1.0 - vertex_texCoord0.y);
+    return vertex_texCoord0;
 }
 #endif
