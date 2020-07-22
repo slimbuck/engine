@@ -104,8 +104,7 @@ Object.assign(ImgParser.prototype, {
                 callback(err);
             } else {
                 createImageBitmap(blob, {
-                    premultiplyAlpha: 'none',
-                    imageOrientation: 'flipY'
+                    premultiplyAlpha: 'none'
                 })
                     .then( function (imageBitmap) {
                         callback(null, imageBitmap);

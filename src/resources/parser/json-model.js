@@ -292,18 +292,24 @@ Object.assign(JsonModelParser.prototype, {
                 for (attributeName in vertexData) {
                     attribute = vertexData[attributeName];
 
+                    var semantic = attributeMap[attributeName];
+
                     switch (attribute.components) {
                         case 1:
-                            iterator.element[attributeMap[attributeName]].set(attribute.data[j]);
+                            iterator.element[semantic].set(attribute.data[j]);
                             break;
                         case 2:
-                            iterator.element[attributeMap[attributeName]].set(attribute.data[j * 2], attribute.data[j * 2 + 1]);
+                            if (semantic >= SEMANTIC_TEXCOORD0 && semantic <= SEMANTIC_TEXCOORD7) {
+                                iterator.element[semantic].set(attribute.data[j * 2], 1.0 - attribute.data[j * 2 + 1]);
+                            } else {
+                                iterator.element[semantic].set(attribute.data[j * 2], attribute.data[j * 2 + 1]);
+                            }
                             break;
                         case 3:
-                            iterator.element[attributeMap[attributeName]].set(attribute.data[j * 3], attribute.data[j * 3 + 1], attribute.data[j * 3 + 2]);
+                            iterator.element[semantic].set(attribute.data[j * 3], attribute.data[j * 3 + 1], attribute.data[j * 3 + 2]);
                             break;
                         case 4:
-                            iterator.element[attributeMap[attributeName]].set(attribute.data[j * 4], attribute.data[j * 4 + 1], attribute.data[j * 4 + 2], attribute.data[j * 4 + 3]);
+                            iterator.element[semantic].set(attribute.data[j * 4], attribute.data[j * 4 + 1], attribute.data[j * 4 + 2], attribute.data[j * 4 + 3]);
                             break;
                     }
                 }
