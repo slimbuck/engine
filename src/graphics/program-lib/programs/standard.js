@@ -630,13 +630,21 @@ var standard = {
             }
         }
 
+        if (options.flipV) {
+            code += "vec2 flipV(vec2 v) { return vec2(v.x, 1.0 - v.y); }\n";
+        }
+
         if (options.forceUv1) useUv[1] = true;
 
         for (i = 0; i < maxUvSets; i++) {
             if (useUv[i]) {
                 attributes["vertex_texCoord" + i] = "TEXCOORD" + i;
                 code += chunks["uv" + i + "VS"];
-                codeBody += "   vec2 uv" + i + " = getUv" + i + "();\n";
+                if (options.flipV) {
+                    codeBody += "   vec2 uv" + i + " = flipV(getUv" + i + "());\n";
+                } else {
+                    codeBody += "   vec2 uv" + i + " = getUv" + i + "();\n";
+                }
             }
             if (useUnmodifiedUv[i]) {
                 codeBody += "   vUv" + i + " = uv" + i + ";\n";

@@ -75,6 +75,8 @@ StandardMaterialOptionsBuilder.prototype._updateUVOptions = function (options, s
         this._updateTexOptions(options, stdMat, p, hasUv0, hasUv1, hasVcolor, minimalOptions);
     }
     this._mapXForms = null;
+
+    options.flipV = !!stdMat.flipV;
 };
 
 StandardMaterialOptionsBuilder.prototype._updateMinOptions = function (options, stdMat) {

@@ -13,7 +13,7 @@ vec2 getUv0() {
 
     vMask = vertex_texCoord0.xy;
 
-    return vec2(uv.x, 1.0 - uv.y);
+    return uv;
 }
 #else
 vec2 getUv0() {

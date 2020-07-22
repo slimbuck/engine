@@ -343,6 +343,7 @@ Object.assign(ElementComponentSystem.prototype, {
                     this.defaultScreenSpaceTextMaterial.depthWrite = false;
                     this.defaultScreenSpaceTextMaterial.depthTest = false;
                     this.defaultScreenSpaceTextMaterial.emissiveVertexColor = true;
+                    this.defaultScreenSpaceTextMaterial.flipV = true;
                     this.defaultScreenSpaceTextMaterial.update();
                 }
                 return this.defaultScreenSpaceTextMaterial;
@@ -365,6 +366,7 @@ Object.assign(ElementComponentSystem.prototype, {
                 this.defaultScreenSpaceBitmapTextMaterial.depthWrite = false;
                 this.defaultScreenSpaceBitmapTextMaterial.depthTest = false;
                 this.defaultScreenSpaceBitmapTextMaterial.emissiveVertexColor = true;
+                this.defaultScreenSpaceBitmapTextMaterial.flipV = true;
                 this.defaultScreenSpaceBitmapTextMaterial.update();
             }
             return this.defaultScreenSpaceBitmapTextMaterial;
@@ -385,6 +387,7 @@ Object.assign(ElementComponentSystem.prototype, {
                 this.defaultTextMaterial.blendType = BLEND_PREMULTIPLIED;
                 this.defaultTextMaterial.depthWrite = false;
                 this.defaultTextMaterial.emissiveVertexColor = true;
+                this.defaultTextMaterial.flipV = true;
                 this.defaultTextMaterial.update();
             }
             return this.defaultTextMaterial;
@@ -406,6 +409,7 @@ Object.assign(ElementComponentSystem.prototype, {
             this.defaultBitmapTextMaterial.blendType = BLEND_PREMULTIPLIED;
             this.defaultBitmapTextMaterial.depthWrite = false;
             this.defaultBitmapTextMaterial.emissiveVertexColor = true;
+            this.defaultBitmapTextMaterial.flipV = true;
             this.defaultBitmapTextMaterial.update();
         }
         return this.defaultBitmapTextMaterial;
@@ -430,6 +434,7 @@ Object.assign(ElementComponentSystem.prototype, {
         material.useSkybox = false;
         material.blendType = BLEND_PREMULTIPLIED;
         material.depthWrite = false;
+        material.flipV = true;
 
         return material;
     },
@@ -465,6 +470,7 @@ Object.assign(ElementComponentSystem.prototype, {
                         this.defaultScreenSpaceImageMask9TiledMaterial.greenWrite = false;
                         this.defaultScreenSpaceImageMask9TiledMaterial.blueWrite = false;
                         this.defaultScreenSpaceImageMask9TiledMaterial.alphaWrite = false;
+                        this.defaultScreenSpaceImageMask9TiledMaterial.flipV = true;
                         this.defaultScreenSpaceImageMask9TiledMaterial.update();
 
                         this.defaultImageMaterials.push(this.defaultScreenSpaceImageMask9TiledMaterial);
