@@ -255,7 +255,6 @@ var GraphicsDevice = function (canvas, options) {
     this.autoInstancingMaxObjects = 16384;
     this.defaultFramebuffer = null;
     this.boundVao = null;
-    this.boundElementBuffer = null;
     this.transformFeedbackBuffer = null;
     this.activeFramebuffer = null;
     this.textureUnit = 0;
@@ -991,7 +990,6 @@ Object.assign(GraphicsDevice.prototype, {
             this.buffers[i].needsUpload = true;
         }
         this.boundVao = null;
-        this.boundElementBuffer = null;
         this.indexBuffer = null;
         this.vertexBuffers = [];
 
@@ -1443,7 +1441,6 @@ Object.assign(GraphicsDevice.prototype, {
      */
     updateBegin: function () {
         this.boundVao = null;
-        this.boundElementBuffer = null;
 
         // clear texture units once a frame on desktop safari
         if (this._tempEnableSafariTextureUnitWorkaround) {
@@ -2201,7 +2198,10 @@ Object.assign(GraphicsDevice.prototype, {
 
             // don't capture index buffer in VAO
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-            this.boundElementBuffer = null;
+
+            // #ifdef DEBUG
+            var locZero = false;
+            // #endif
 
             var e, elements;
             for (i = 0; i < vertexBuffers.length; i++) {
@@ -2215,6 +2215,12 @@ Object.assign(GraphicsDevice.prototype, {
                 for (var j = 0; j < elements.length; j++) {
                     e = elements[j];
                     var loc = semanticToLocation[e.name];
+
+                    // #ifdef DEBUG
+                    if (loc === 0) {
+                        locZero = true;
+                    }
+                    // #endif
 
                     gl.vertexAttribPointer(loc, e.numComponents, this.glType[e.dataType], e.normalize, e.stride, e.offset);
                     gl.enableVertexAttribArray(loc);
@@ -2235,6 +2241,12 @@ Object.assign(GraphicsDevice.prototype, {
             if (useCache) {
                 this._vaoMap.set(key, vao);
             }
+
+            // #ifdef DEBUG
+            if (!locZero) {
+                console.warn("No vertex attribute is mapped to location 0, which might cause compatibility issues on Safari on MacOS - please use attribute SEMANTIC_POSITION or SEMANTIC_ATTR15");
+            }
+            // #endif
         }
 
         return vao;
@@ -2242,7 +2254,7 @@ Object.assign(GraphicsDevice.prototype, {
 
     setBuffers: function () {
         var gl = this.gl;
-        var vertexBuffer, bufferId, vao;
+        var vertexBuffer, vao;
 
         // create VAO for specified vertex buffers
         if (this.vertexBuffers.length === 1) {
@@ -2268,11 +2280,10 @@ Object.assign(GraphicsDevice.prototype, {
         this.vertexBuffers.length = 0;
 
         // Set the active index buffer object
-        bufferId = this.indexBuffer ? this.indexBuffer.bufferId : null;
-        if (this.boundElementBuffer !== bufferId) {
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferId);
-            this.boundElementBuffer = bufferId;
-        }
+        // Note: we don't cache this state and set it only when it changes, as VAO captures last bind buffer in it
+        // and so we don't know what VAO sets it to.
+        var bufferId = this.indexBuffer ? this.indexBuffer.bufferId : null;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferId);
     },
 
     /**
@@ -2292,6 +2303,8 @@ Object.assign(GraphicsDevice.prototype, {
      * @param {number} primitive.count - The number of indices or vertices to dispatch in the draw call.
      * @param {boolean} [primitive.indexed] - True to interpret the primitive as indexed, thereby using the currently set index buffer and false otherwise.
      * @param {number} [numInstances=1] - The number of instances to render when using ANGLE_instanced_arrays. Defaults to 1.
+     * @param {boolean} [keepBuffers] - Optionally keep the current set of vertex buffers / VAO. This is used when rendering of
+     * multiple views, for example under WebXR.
      * @example
      * // Render a single, unindexed triangle
      * device.draw({
@@ -2301,7 +2314,7 @@ Object.assign(GraphicsDevice.prototype, {
      *     indexed: false
      * });
      */
-    draw: function (primitive, numInstances) {
+    draw: function (primitive, numInstances, keepBuffers) {
         var gl = this.gl;
 
         var i, j, len; // Loop counting
@@ -2312,7 +2325,9 @@ Object.assign(GraphicsDevice.prototype, {
         var uniforms = shader.uniforms;
 
         // vertex buffers
-        this.setBuffers();
+        if (!keepBuffers) {
+            this.setBuffers();
+        }
 
         // Commit the shader program variables
         var textureUnit = 0;

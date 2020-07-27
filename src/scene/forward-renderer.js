@@ -614,11 +614,13 @@ Object.assign(ForwardRenderer.prototype, {
             }
             viewInvMat.copy(viewMat).invert();
             this.viewInvId.setValue(viewInvMat.data);
-            camera.frustum.update(projMat, viewMat);
+            viewProjMat.mul2(projMat, viewMat);
+            camera.frustum.setFromMat4(viewProjMat);
         } else if (camera.xr && camera.xr.views.length) {
             // calculate frustum based on XR view
             var view = camera.xr.views[0];
-            camera.frustum.update(view.projMat, view.viewOffMat);
+            viewProjMat.mul2(view.projMat, view.viewOffMat);
+            camera.frustum.setFromMat4(viewProjMat);
             return;
         }
 
@@ -635,7 +637,8 @@ Object.assign(ForwardRenderer.prototype, {
         }
         viewMat.copy(viewInvMat).invert();
 
-        camera.frustum.update(projMat, viewMat);
+        viewProjMat.mul2(projMat, viewMat);
+        camera.frustum.setFromMat4(viewProjMat);
     },
 
     // make sure colorWrite is set to true to all channels, if you want to fully clear the target
@@ -707,7 +710,8 @@ Object.assign(ForwardRenderer.prototype, {
             viewPosR.y = viewInvR.data[13];
             viewPosR.z = viewInvR.data[14];
 
-            camera.frustum.update(projMat, viewMat);
+            viewProjMat.mul2(projMat, viewMat);
+            camera.frustum.setFromMat4(viewProjMat);
         } else if (camera.xr && camera.xr.session) {
             parent = camera._node.parent;
             if (parent) transform = parent.getWorldTransform();
@@ -732,7 +736,7 @@ Object.assign(ForwardRenderer.prototype, {
                 view.position[1] = view.viewInvOffMat.data[13];
                 view.position[2] = view.viewInvOffMat.data[14];
 
-                camera.frustum.update(view.projMat, view.viewOffMat);
+                camera.frustum.setFromMat4(view.projViewOffMat);
             }
         } else {
             // Projection Matrix
@@ -773,7 +777,7 @@ Object.assign(ForwardRenderer.prototype, {
 
             this.viewPosId.setValue(this.viewPos);
 
-            camera.frustum.update(projMat, viewMat);
+            camera.frustum.setFromMat4(viewProjMat);
         }
 
         // Near and far clip values
@@ -1302,7 +1306,7 @@ Object.assign(ForwardRenderer.prototype, {
             }
         } else {
             // matrices are already set
-            device.draw(mesh.primitive[style]);
+            device.draw(mesh.primitive[style], null, true);
         }
         return 0;
     },
@@ -1654,8 +1658,8 @@ Object.assign(ForwardRenderer.prototype, {
                     vb = morphInstance._activeVertexBuffers[t];
                     if (vb) {
 
-                        // patch semantic for the buffer to current ATTR slot
-                        semantic = SEMANTIC_ATTR + t;
+                        // patch semantic for the buffer to current ATTR slot (using ATTR8 - ATTR15 range)
+                        semantic = SEMANTIC_ATTR + (t + 8);
                         vb.format.elements[0].name = semantic;
                         vb.format.elements[0].scopeId = device.scope.resolve(semantic);
                         vb.format.update();
