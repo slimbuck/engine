@@ -300,10 +300,10 @@ function createMesh(device, positions, opts) {
             iterator.element[SEMANTIC_COLOR].set(colors[i * 4], colors[i * 4 + 1], colors[i * 4 + 2], colors[i * 4 + 3]);
         }
         if (uvs !== null) {
-            iterator.element[SEMANTIC_TEXCOORD0].set(uvs[i * 2], uvs[i * 2 + 1]);
+            iterator.element[SEMANTIC_TEXCOORD0].set(uvs[i * 2], 1.0 - uvs[i * 2 + 1]);
         }
         if (uvs1 !== null) {
-            iterator.element[SEMANTIC_TEXCOORD1].set(uvs1[i * 2], uvs1[i * 2 + 1]);
+            iterator.element[SEMANTIC_TEXCOORD1].set(uvs1[i * 2], 1.0 - uvs1[i * 2 + 1]);
         }
         if (blendIndices !== null) {
             iterator.element[SEMANTIC_BLENDINDICES].set(blendIndices[i * 2], blendIndices[i * 2 + 1]);

@@ -894,16 +894,16 @@ Object.assign(TextElement.prototype, {
                 var uv = this._getUv(char);
 
                 meshInfo.uvs[quad * 4 * 2 + 0] = uv[0];
-                meshInfo.uvs[quad * 4 * 2 + 1] = uv[1];
+                meshInfo.uvs[quad * 4 * 2 + 1] = 1.0 - uv[1];
 
                 meshInfo.uvs[quad * 4 * 2 + 2] = uv[2];
-                meshInfo.uvs[quad * 4 * 2 + 3] = uv[1];
+                meshInfo.uvs[quad * 4 * 2 + 3] = 1.0 - uv[1];
 
                 meshInfo.uvs[quad * 4 * 2 + 4] = uv[2];
-                meshInfo.uvs[quad * 4 * 2 + 5] = uv[3];
+                meshInfo.uvs[quad * 4 * 2 + 5] = 1.0 - uv[3];
 
                 meshInfo.uvs[quad * 4 * 2 + 6] = uv[0];
-                meshInfo.uvs[quad * 4 * 2 + 7] = uv[3];
+                meshInfo.uvs[quad * 4 * 2 + 7] = 1.0 - uv[3];
 
                 // set per-vertex color
                 if (this._symbolColors) {
