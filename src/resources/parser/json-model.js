@@ -298,7 +298,7 @@ Object.assign(JsonModelParser.prototype, {
                             iterator.element[attributeMap[attributeName]].set(attribute.data[j]);
                             break;
                         case 2:
-                            iterator.element[attributeMap[attributeName]].set(attribute.data[j * 2], attribute.data[j * 2 + 1]);
+                            iterator.element[attributeMap[attributeName]].set(attribute.data[j * 2], 1.0 - attribute.data[j * 2 + 1]);
                             break;
                         case 3:
                             iterator.element[attributeMap[attributeName]].set(attribute.data[j * 3], attribute.data[j * 3 + 1], attribute.data[j * 3 + 2]);

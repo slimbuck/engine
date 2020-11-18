@@ -711,13 +711,19 @@ Object.assign(StandardMaterial.prototype, {
         return clone;
     },
 
-    _updateMapTransform: function (transform, tiling, offset) {
-        if (tiling.x === 1 && tiling.y === 1 && offset.x === 0 && offset.y === 0) {
+    _updateMapTransform: function (transform, tiling, offset, map) {
+        // check if the texture requires flipping
+        var requiresFlip = map && map._compressed;
+
+        if (!requiresFlip && tiling.x === 1 && tiling.y === 1 && offset.x === 0 && offset.y === 0) {
             return null;
         }
 
         transform = transform || new Vec4();
-        transform.set(tiling.x, tiling.y, offset.x, offset.y);
+        transform.set(tiling.x,
+                      tiling.y * (requiresFlip ? -1 : 1),
+                      offset.x,
+                      requiresFlip ? 1.0 - tiling.y - offset.y : offset.y);
         return transform;
     },
 
@@ -746,7 +752,8 @@ Object.assign(StandardMaterial.prototype, {
             this[tname] = this._updateMapTransform(
                 this[tname],
                 this[mname + "Tiling"],
-                this[mname + "Offset"]
+                this[mname + "Offset"],
+                map
             );
 
             // update uniform

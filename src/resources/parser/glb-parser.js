@@ -428,7 +428,7 @@ var createVertexBufferInternal = function (device, sourceDesc, disableFlipV) {
         }
     }
 
-    if (!disableFlipV) {
+    if (disableFlipV) {
         flipTexCoordVs(vertexBuffer);
     }
 
