@@ -308,8 +308,8 @@ var ParticleEmitter = function (graphicsDevice, options) {
     this.internalTex2 = null;
     this.colorParam = null;
 
-    this.vbToSort = null;
-    this.vbOld = null;
+    this.vbCPU = null;
+    this.particleIndex = null;
     this.particleDistance = null;
 
     this.camera = null;
@@ -616,9 +616,12 @@ Object.assign(ParticleEmitter.prototype, {
         }
 
         // Dynamic simulation data
-        this.vbToSort = new Array(this.numParticles);
-        for (var iSort = 0; iSort < this.numParticles; iSort++) this.vbToSort[iSort] = [0, 0];
+        this.particleOrder = new Float32Array(this.numParticles);
         this.particleDistance = new Float32Array(this.numParticles);
+        for (i = 0; i < this.numParticles; ++i) {
+            this.particleOrder[i] = i;
+            this.particleDistance[i] = 0;
+        }
 
         this._gpuUpdater.randomize();
 
@@ -639,8 +642,7 @@ Object.assign(ParticleEmitter.prototype, {
             if (this.useCpu) this.particleTex[i * particleTexChannels + 3 + this.numParticlesPot * 2 * particleTexChannels] = 1; // hide/show
         }
 
-        this.particleTexStart = new Float32Array(this.numParticlesPot * particleTexHeight * particleTexChannels);
-        for (i = 0; i < this.particleTexStart.length; i++) this.particleTexStart[i] = this.particleTex[i];
+        this.particleTexStart = new Float32Array(this.particleTex);
 
         if (!this.useCpu) {
             if (this.pack8) {
@@ -993,10 +995,6 @@ Object.assign(ParticleEmitter.prototype, {
                         type: TYPE_FLOAT32
                     });
                 }
-                particleFormat = new VertexFormat(this.graphicsDevice, elements);
-
-                this.vertexBuffer = new VertexBuffer(this.graphicsDevice, particleFormat, psysVertCount, BUFFER_DYNAMIC);
-                this.indexBuffer = new IndexBuffer(this.graphicsDevice, INDEXFORMAT_UINT16, psysIndexCount);
             } else {
                 elements = [{
                     semantic: SEMANTIC_ATTR0,
@@ -1019,11 +1017,10 @@ Object.assign(ParticleEmitter.prototype, {
                     components: this.useMesh ? 4 : 2,
                     type: TYPE_FLOAT32
                 }];
-                particleFormat = new VertexFormat(this.graphicsDevice, elements);
-
-                this.vertexBuffer = new VertexBuffer(this.graphicsDevice, particleFormat, psysVertCount, BUFFER_DYNAMIC);
-                this.indexBuffer = new IndexBuffer(this.graphicsDevice, INDEXFORMAT_UINT16, psysIndexCount);
             }
+            particleFormat = new VertexFormat(this.graphicsDevice, elements);
+            this.vertexBuffer = new VertexBuffer(this.graphicsDevice, particleFormat, psysVertCount, BUFFER_DYNAMIC);
+            this.indexBuffer = new IndexBuffer(this.graphicsDevice, INDEXFORMAT_UINT16, psysIndexCount);
 
             // Fill the vertex buffer
             var data = new Float32Array(this.vertexBuffer.lock());
@@ -1061,13 +1058,11 @@ Object.assign(ParticleEmitter.prototype, {
 
             if (this.useCpu) {
                 this.vbCPU = new Float32Array(data);
-                this.vbOld = new Float32Array(this.vbCPU.length);
             }
             this.vertexBuffer.unlock();
             if (this.useMesh) {
                 this.mesh.vertexBuffer.unlock();
             }
-
 
             // Fill the index buffer
             var dst = 0;
@@ -1177,14 +1172,13 @@ Object.assign(ParticleEmitter.prototype, {
             }
         }
 
-        var emitterPos;
         var emitterScale = this.meshInstance.node === null ? Vec3.ONE : this.meshInstance.node.localScale;
         this.emitterScaleUniform[0] = emitterScale.x;
         this.emitterScaleUniform[1] = emitterScale.y;
         this.emitterScaleUniform[2] = emitterScale.z;
         this.material.setParameter("emitterScale", this.emitterScaleUniform);
         if (this.localSpace && this.meshInstance.node) {
-            emitterPos = this.meshInstance.node.getPosition();
+            var emitterPos = this.meshInstance.node.getPosition();
             this.emitterPosUniform[0] = emitterPos.x;
             this.emitterPosUniform[1] = emitterPos.y;
             this.emitterPosUniform[2] = emitterPos.z;
@@ -1197,7 +1191,7 @@ Object.assign(ParticleEmitter.prototype, {
             this._gpuUpdater.update(device, spawnMatrix, extentsInnerRatioUniform, delta, isOnStop);
         } else {
             var data = new Float32Array(this.vertexBuffer.lock());
-            this._cpuUpdater.update(data, this.vbToSort, this.particleTex, spawnMatrix, extentsInnerRatioUniform, emitterPos, delta, isOnStop);
+            this._cpuUpdater.update(data, this.particleTex, spawnMatrix, extentsInnerRatioUniform, delta, isOnStop);
             // this.vertexBuffer.unlock();
         }
 

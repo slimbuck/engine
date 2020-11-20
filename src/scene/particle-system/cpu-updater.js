@@ -59,6 +59,20 @@ function encodeFloatRG( v ) {
     return [encX, encY];
 }
 
+function sortParticles(order, distance) {
+    var i;
+
+    for (i = 0; i < order.length; ++i) {
+        order[i] = i;
+    }
+
+    order.sort(function (a, b) {
+        var av = distance[a];
+        var bv = distance[b];
+        return (av < bv) ? -1 : (bv < av ? 1 : 0);
+    });
+}
+
 // Wraps CPU update computations from ParticleEmitter
 function ParticleCPUUpdater(emitter) {
     this._emitter = emitter;
@@ -158,8 +172,8 @@ ParticleCPUUpdater.prototype.calcSpawnPosition = function (particleTex, spawnMat
     }
 };
 
-// This should only change emitter state via in-params like data, vbToSort, etc.
-ParticleCPUUpdater.prototype.update = function (data, vbToSort, particleTex, spawnMatrix, extentsInnerRatioUniform, emitterPos, delta, isOnStop) {
+// This should only change emitter state via in-params like data, etc.
+ParticleCPUUpdater.prototype.update = function (data, particleTex, spawnMatrix, extentsInnerRatioUniform, delta, isOnStop) {
     var a, b, c, i, j;
     var emitter = this._emitter;
 
@@ -175,7 +189,7 @@ ParticleCPUUpdater.prototype.update = function (data, vbToSort, particleTex, spa
     }
 
     // Particle updater emulation
-    emitterPos = (emitter.meshInstance.node === null || emitter.localSpace) ? Vec3.ZERO : emitter.meshInstance.node.getPosition();
+    var emitterPos = (emitter.meshInstance.node === null || emitter.localSpace) ? Vec3.ZERO : emitter.meshInstance.node.getPosition();
     var posCam = emitter.camera ? emitter.camera._node.getPosition() : Vec3.ZERO;
 
     var vertSize = !emitter.useMesh ? 15 : 17;
@@ -184,7 +198,7 @@ ParticleCPUUpdater.prototype.update = function (data, vbToSort, particleTex, spa
     var precision1 = emitter.precision - 1;
 
     for (i = 0; i < emitter.numParticles; i++) {
-        var id = Math.floor(emitter.vbCPU[i * emitter.numParticleVerts * (emitter.useMesh ? 6 : 4) + 3]);
+        var id = emitter.particleOrder[i];
 
         var rndFactor = particleTex[id * particleTexChannels + 0 + emitter.numParticlesPot * 2 * particleTexChannels];
         rndFactor3Vec.x = rndFactor;
@@ -416,50 +430,31 @@ ParticleCPUUpdater.prototype.update = function (data, vbToSort, particleTex, spa
             }
 
             var w = i * emitter.numParticleVerts * vertSize + v * vertSize;
-            data[w] = particleFinalPos.x;
-            data[w + 1] = particleFinalPos.y;
-            data[w + 2] = particleFinalPos.z;
-            data[w + 3] = nlife;
-            data[w + 4] = emitter.alignToMotion ? angle : particleTex[id * particleTexChannels + 3];
-            data[w + 5] = scale;
-            data[w + 6] = alphaDiv;
-            data[w + 7] = moveDirVec.x;
-            data[w + 8] = quadX;
-            data[w + 9] = quadY;
-            data[w + 10] = quadZ;
-            data[w + 11] = moveDirVec.y;
-            data[w + 12] = id;
-            data[w + 13] = moveDirVec.z;
-            data[w + 14] = emitter.vbCPU[vbOffset + 3];
+            data[w] = particleFinalPos.x;                                                               // world.x
+            data[w + 1] = particleFinalPos.y;                                                           // world.y
+            data[w + 2] = particleFinalPos.z;                                                           // world.z
+            data[w + 3] = nlife;                                                                        // life
+            data[w + 4] = emitter.alignToMotion ? angle : particleTex[id * particleTexChannels + 3];    // angle
+            data[w + 5] = scale;                                                                        // scale
+            data[w + 6] = alphaDiv;                                                                     // alpha
+            data[w + 7] = moveDirVec.x;                                                                 // vel.x
+            data[w + 8] = quadX;                                                                        // local.x
+            data[w + 9] = quadY;                                                                        // local.y
+            data[w + 10] = quadZ;                                                                       // local.z
+            data[w + 11] = moveDirVec.y;                                                                // vel.y
+            data[w + 12] = id;                                                                          // particle.id
+            data[w + 13] = moveDirVec.z;                                                                // vel.z
+            data[w + 14] = emitter.vbCPU[vbOffset + 3];                                                 // particle.id
             if (emitter.useMesh) {
-                data[w + 15] = emitter.vbCPU[vbOffset + 4];
-                data[w + 16] = emitter.vbCPU[vbOffset + 5];
+                data[w + 15] = emitter.vbCPU[vbOffset + 4];                                             // mesh.u
+                data[w + 16] = emitter.vbCPU[vbOffset + 5];                                             // mesh.v 
             }
         }
     }
 
     // Particle sorting
     if (emitter.sort > PARTICLESORT_NONE && emitter.camera) {
-        var vbStride = emitter.useMesh ? 6 : 4;
-        var particleDistance = emitter.particleDistance;
-        for (i = 0; i < emitter.numParticles; i++) {
-            vbToSort[i][0] = i;
-            vbToSort[i][1] = particleDistance[Math.floor(emitter.vbCPU[i * emitter.numParticleVerts * vbStride + 3])]; // particle id
-        }
-
-        emitter.vbOld.set(emitter.vbCPU);
-
-        vbToSort.sort(function (p1, p2) {
-            return p1[1] - p2[1];
-        });
-
-        for (i = 0; i < emitter.numParticles; i++) {
-            var src = vbToSort[i][0] * emitter.numParticleVerts * vbStride;
-            var dest = i * emitter.numParticleVerts * vbStride;
-            for (j = 0; j < emitter.numParticleVerts * vbStride; j++) {
-                emitter.vbCPU[dest + j] = emitter.vbOld[src + j];
-            }
-        }
+        sortParticles(emitter.particleOrder, emitter.particleDistance);
     }
 };
 
