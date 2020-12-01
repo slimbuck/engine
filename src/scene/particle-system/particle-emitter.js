@@ -44,7 +44,7 @@ import { ParticleCPUUpdater } from './cpu-updater.js';
 import { ParticleGPUUpdater } from './gpu-updater.js';
 
 var particleVerts = [
-    [-1, -1],
+    [-1, 1],
     [1, 1],
     [1, -1],
     [-1, -1]
