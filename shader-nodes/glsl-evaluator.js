@@ -1,13 +1,14 @@
+// GlslEvaluator
 
 // emit a shader constant definition
 // eg: 'vec3 uniqueName = vec3(1.0, 2.0, 3.0);'
 // and returns 'uniqueName'
-var glslEval_Constant = function (inputs, nodeSettings, nodeParams, evaluator) {
+var GlslEval_Constant = function (inputs, nodeSettings, nodeParams, evaluator) {
     var outputType = nodeSettings.types[0];
     var id = evaluator.gen.identifier();                                    // 'id_0'
     var typeDecl = evaluator.gen.typeDecl(outputType);                      // 'vec3'
     var constDecl = evaluator.gen.constantDecl(outputType, nodeParams);     // 'vec3(0.0, 1.0, 2.0)
-    
+
     evaluator.emit(typeDecl + " " + id + " = " + constDecl + ";");
     return [ {
         type: outputType,
@@ -16,7 +17,7 @@ var glslEval_Constant = function (inputs, nodeSettings, nodeParams, evaluator) {
 };
 
 // emit code to add inputs
-var glslEval_Add = function (inputs, nodeSettings, nodeParams, evaluator) {
+var GlslEval_Add = function (inputs, nodeSettings, nodeParams, evaluator) {
     var outputType = evaluator.determineTypeFromInputs(inputs);
     var id = evaluator.gen.identifier();                                    // 'name_1'
     var typeDecl = evaluator.gen.typeDecl(outputType);                      // 'vec3'
@@ -37,15 +38,15 @@ var glslEval_Add = function (inputs, nodeSettings, nodeParams, evaluator) {
 };
 
 // null
-var glslEval_Null = function (inputs, nodeSettings, nodeParams, evaluator) {
+var GlslEval_Null = function (inputs, nodeSettings, nodeParams, evaluator) {
     return [ ];
 };
 
 var GlslEvaluator = function () {
     this.coreNodes = {
-        'constant': glslEval_Constant,
-        'add': glslEval_Add,
-        'null': glslEval_Null
+        'constant': GlslEval_Constant,
+        'add': GlslEval_Add,
+        'null': GlslEval_Null
     };
 
     // array of text strings
@@ -201,7 +202,7 @@ Object.assign(GlslEvaluator.prototype, {
                                 } else if (i < value.type.dimension) {
                                     data[i] = value.id + '.' + ['x', 'y', 'z', 'w'][i];
                                 } else {
-                                    data[i] = '0.0';
+                                    data[i] = '0';
                                 }
                             }
                             return this.constantDecl(type, data);

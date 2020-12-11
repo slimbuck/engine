@@ -25,3 +25,5 @@ jsEvaluator.evaluate(4, graph, graphParams);
 
 var glslEvaluator = new GlslEvaluator();
 glslEvaluator.evaluate(4, graph, graphParams);
+
+console.log(glslEvaluator.result.join("\n"));

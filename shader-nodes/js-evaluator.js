@@ -1,6 +1,6 @@
 // JsEvaluator
 
-// value node
+// constant node, evaluates to the constant
 var JsEval_Constant = function (inputs, nodeSettings, nodeParams, evaluator) {
     var result = evaluator.createValue(nodeSettings.types[0], nodeParams);
     console.log('constant result=' + JSON.stringify(result));
@@ -134,12 +134,14 @@ Object.assign(JsEvaluator.prototype, {
                     case 3: return [0, 0, 0];
                     case 4: return [0, 0, 0, 0];
                 }
+                break;
             case DataType.mat:
                 switch (type.dimension) {
                     case 2: return [1, 0, 0, 1];
                     case 3: return [1, 0, 0, 0, 1, 0, 0, 0, 1];
                     case 4: return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
                 }
+                break;
         }
         return null;
     },
