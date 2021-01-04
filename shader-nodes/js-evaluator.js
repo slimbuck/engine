@@ -7,6 +7,10 @@ var JsEval_Constant = function (inputs, nodeSettings, nodeParams, evaluator) {
     return [ result ];
 };
 
+var JsEval_Identifier = function (inputs, nodeSettings, nodeParams, evaluator) {
+    
+};
+
 // eval node
 var JsEval_Add = function (inputs, nodeSettings, nodeParams, evaluator) {
     // determine the output type automatically from input types. (type
@@ -51,6 +55,7 @@ var JsEval_Null = function (inputs, nodeSettings, nodeParams, evaluator) {
 var JsEvaluator = function () {
     this.coreNodes = {
         constant: JsEval_Constant,
+        identifier: JsEval_Identifier,
         add: JsEval_Add,
         null: JsEval_Null
     };

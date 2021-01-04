@@ -13,7 +13,7 @@ graph.createConnection(1, 3, 0, 1);
 graph.createConnection(2, 3, 0, 2);
 graph.createConnection(3, 4, 0, 0);
 
-// create node parameters (map of nodeId -> parms)
+// create node parameters (map of nodeId -> params)
 var graphParams = {
     0: [ 1, 2 ],
     1: [ 3, 4, 5, 6 ],
@@ -27,3 +27,17 @@ var glslEvaluator = new GlslEvaluator();
 glslEvaluator.evaluate(4, graph, graphParams);
 
 console.log(glslEvaluator.result.join("\n"));
+
+/*
+var graphFragment = {
+    id: 0,
+    dependentIds: [1, 2, 3 ],
+    nodes: {
+        0: {
+            id: 0,
+            type: 'constant',
+            settings: { }
+        }
+    }
+}
+*/

@@ -16,6 +16,10 @@ var GlslEval_Constant = function (inputs, nodeSettings, nodeParams, evaluator) {
     } ];
 };
 
+var GlslEval_Identifier = function (inputs, nodeSettings, nodeParams, evaluator) {
+
+};
+
 // emit code to add inputs
 var GlslEval_Add = function (inputs, nodeSettings, nodeParams, evaluator) {
     var outputType = evaluator.determineTypeFromInputs(inputs);
@@ -44,9 +48,10 @@ var GlslEval_Null = function (inputs, nodeSettings, nodeParams, evaluator) {
 
 var GlslEvaluator = function () {
     this.coreNodes = {
-        'constant': GlslEval_Constant,
-        'add': GlslEval_Add,
-        'null': GlslEval_Null
+        constant: GlslEval_Constant,
+        identifier: GlslEval_Identifier,
+        add: GlslEval_Add,
+        null: GlslEval_Null
     };
 
     // array of text strings

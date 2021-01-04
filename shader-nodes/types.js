@@ -29,6 +29,7 @@ var Graph = function () {
     // metadata for core node types
     this.meta = {
         constant: { inputs: 0, outputs: 1 },
+        identifier: { inputs: 0, outputs: 1 },
         add: { inputs: 6, outputs: 1 },
         null: { inputs: 1, outputs: 1 }
     }
@@ -36,13 +37,12 @@ var Graph = function () {
 
 Object.assign(Graph.prototype, {
     createNode: function (id, type, settings) {
-        var node = {
+        this.nodeById[id] = {
             id: id,
             type: type,
             settings: settings,
             connections: { }
         };
-        this.nodeById[id] = node;
     },
 
     createConnection: function (srcNodeId, dstNodeId, srcOutput, dstInput) {
