@@ -1,51 +1,31 @@
 
 // data types
 var DataType = {
-    float: 'float',
-    mat: 'mat',
-    texture: 'texture'
+    Vec: 'Vec',
+    Mat: 'Mat',
+    Texture: 'Texture'
 };
 
 // a type consists of a data type and dimension
-var Type = function (dataType, dimension) {
+var Type = function (name, dataType, dimension) {
+    this.name = name;
     this.dataType = dataType;
-    this.dimension = (dataType == DataType.texture) ? 0 : dimension;
+    this.dimension = (dataType == DataType.Texture) ? 0 : dimension;
 };
 
 // supported types
-var FloatType = new Type(DataType.float, 1);
-var Vec2Type = new Type(DataType.float, 2);
-var Vec3Type = new Type(DataType.float, 3);
-var Vec4Type = new Type(DataType.float, 4);
-var Mat2Type = new Type(DataType.mat, 2);
-var Mat3Type = new Type(DataType.mat, 3);
-var Mat4Type = new Type(DataType.mat, 4);
-var TextureType = new Type(DataType.texture, 0);
-
-// graph
-var Graph = function () {
-    this.nodeById = { };
-
-    // metadata for core node types
-    this.meta = {
-        constant: { inputs: 0, outputs: 1 },
-        identifier: { inputs: 0, outputs: 1 },
-        add: { inputs: 6, outputs: 1 },
-        null: { inputs: 1, outputs: 1 }
-    }
+var Types = {
+    Float: new Type('Float', DataType.Vec, 1),
+    Vec2: new Type('Vec2', DataType.Vec, 2),
+    Vec3: new Type('Vec3', DataType.Vec, 3),
+    Vec4: new Type('Vec4', DataType.Vec, 4),
+    Mat2: new Type('Mat2', DataType.Mat, 2),
+    Mat3: new Type('Mat3', DataType.Mat, 3),
+    Mat4: new Type('Mat4', DataType.Mat, 4),
+    Texture: new Type('Texture', DataType.Texture, 0)
 };
 
-Object.assign(Graph.prototype, {
-    createNode: function (id, type, settings) {
-        this.nodeById[id] = {
-            id: id,
-            type: type,
-            settings: settings,
-            connections: { }
-        };
-    },
-
-    createConnection: function (srcNodeId, dstNodeId, srcOutput, dstInput) {
-        this.nodeById[dstNodeId].connections[dstInput] = { node: this.nodeById[srcNodeId], output: srcOutput };
-    }
-});
+var Value = function (typeString, data) {
+    this.type = Types[typeString];
+    this.data = data;
+};
