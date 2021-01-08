@@ -1,8 +1,9 @@
-import { createScript } from '../../../script/script.js';
+import { SortedLoopArray } from '../../../core/sorted-loop-array.js';
+
+import { ScriptAttributes } from '../../../script/script-attributes.js';
 
 import { Component } from '../component.js';
 import { Entity } from '../../entity.js';
-import { SortedLoopArray } from '../../utils/sorted-loop-array.js';
 
 /**
  * @component
@@ -970,7 +971,7 @@ Object.defineProperty(ScriptComponent.prototype, 'scripts', {
                 // attributes
                 if (typeof value[key].attributes === 'object') {
                     for (var attr in value[key].attributes) {
-                        if (createScript.reservedAttributes[attr])
+                        if (ScriptAttributes.reservedNames.has(attr))
                             continue;
 
                         if (!script.__attributes.hasOwnProperty(attr)) {

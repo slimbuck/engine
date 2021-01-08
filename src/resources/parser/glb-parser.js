@@ -38,7 +38,9 @@ import { Skin } from '../../scene/skin.js';
 import { SkinInstance } from '../../scene/skin-instance.js';
 import { StandardMaterial } from '../../scene/materials/standard-material.js';
 
-import { AnimCurve, AnimData, AnimTrack } from '../../anim/anim.js';
+import { AnimCurve } from '../../anim/anim-curve.js';
+import { AnimData } from '../../anim/anim-data.js';
+import { AnimTrack } from '../../anim/anim-track.js';
 import { INTERPOLATION_CUBIC, INTERPOLATION_LINEAR, INTERPOLATION_STEP } from '../../anim/constants.js';
 
 import { Asset } from '../../asset/asset.js';
@@ -1717,7 +1719,7 @@ var loadTexturesAsync = function (gltf, bufferViews, urlBase, registry, options,
 var loadBuffersAsync = function (gltf, binaryChunk, urlBase, options, callback) {
     var result = [];
 
-    if (gltf.buffers === null || gltf.buffers.length === 0) {
+    if (!gltf.buffers || gltf.buffers.length === 0) {
         callback(null, result);
         return;
     }
@@ -1897,7 +1899,14 @@ var parseBufferViewsAsync = function (gltf, buffers, options, callback) {
     };
     var postprocess = options && options.bufferView && options.bufferView.postprocess;
 
-    var remaining = gltf.bufferViews.length;
+    var remaining = gltf.bufferViews ? gltf.bufferViews.length : 0;
+
+    // handle case of no buffers
+    if (!remaining) {
+        callback(null, null);
+        return;
+    }
+
     var onLoad = function (index, bufferView) {
         var gltfBufferView = gltf.bufferViews[index];
         if (gltfBufferView.hasOwnProperty('byteStride')) {

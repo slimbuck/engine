@@ -6,6 +6,7 @@ import { Vec4 } from '../../../math/vec4.js';
 import {
     BLUR_GAUSSIAN,
     LAYERID_WORLD,
+    LIGHTSHAPE_PUNCTUAL,
     LIGHTFALLOFF_LINEAR,
     MASK_BAKED, MASK_DYNAMIC, MASK_LIGHTMAP,
     SHADOW_PCF3,
@@ -158,6 +159,9 @@ var _defineProps = function () {
     }, true);
     _defineProperty("intensity", 1, function (newValue, oldValue) {
         this.light.intensity = newValue;
+    });
+    _defineProperty("shape", LIGHTSHAPE_PUNCTUAL, function (newValue, oldValue) {
+        this.light.shape = newValue;
     });
     _defineProperty("castShadows", false, function (newValue, oldValue) {
         this.light.castShadows = newValue;
@@ -465,12 +469,16 @@ Object.assign(LightComponent.prototype, {
     },
 
     onRemove: function () {
+
+        // remove from layers
+        this.onDisable();
+
         // destroy light node
         this.light.destroy();
+
         // remove cookie asset events
         this.cookieAsset = null;
     }
-
 });
 
 var _lightProps = _props;

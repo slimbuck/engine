@@ -7,12 +7,14 @@ import {
 import {
     BLEND_NONE,
     GAMMA_NONE, GAMMA_SRGBHDR,
-    LIGHTTYPE_DIRECTIONAL, LIGHTTYPE_POINT, LIGHTTYPE_SPOT,
+    LIGHTTYPE_DIRECTIONAL, LIGHTTYPE_OMNI, LIGHTTYPE_SPOT,
     SHADER_FORWARDHDR,
     SHADERDEF_DIRLM, SHADERDEF_INSTANCING, SHADERDEF_LM, SHADERDEF_MORPH_POSITION, SHADERDEF_MORPH_NORMAL, SHADERDEF_NOSHADOW, SHADERDEF_MORPH_TEXTURE_BASED,
     SHADERDEF_SCREENSPACE, SHADERDEF_SKIN, SHADERDEF_TANGENTS, SHADERDEF_UV0, SHADERDEF_UV1, SHADERDEF_VCOLOR,
     TONEMAP_LINEAR
 } from '../constants.js';
+
+import { Quat } from '../../math/quat.js';
 
 function StandardMaterialOptionsBuilder() {
     this._mapXForms = null;
@@ -185,6 +187,8 @@ StandardMaterialOptionsBuilder.prototype._updateEnvOptions = function (options, 
     options.fixSeams = prefilteredCubeMap128 ? prefilteredCubeMap128.fixCubemapSeams : (stdMat.cubeMap ? stdMat.cubeMap.fixCubemapSeams : false);
     options.prefilteredCubemap = !!prefilteredCubeMap128;
     options.skyboxIntensity = (prefilteredCubeMap128 && globalSky128 && prefilteredCubeMap128 === globalSky128) && (scene.skyboxIntensity !== 1);
+    options.useCubeMapRotation = (stdMat.useSkybox && scene && scene.skyboxRotation && !scene.skyboxRotation.equals(Quat.IDENTITY));
+    options.useRightHandedCubeMap = stdMat.cubeMap ? stdMat.cubeMap._isRenderTarget : (stdMat.useSkybox && scene && scene._skyboxIsRenderTarget );
 };
 
 StandardMaterialOptionsBuilder.prototype._updateLightOptions = function (options, stdMat, objDefs, sortedLights, staticLightList) {
@@ -217,7 +221,7 @@ StandardMaterialOptionsBuilder.prototype._updateLightOptions = function (options
         var mask = objDefs ? (objDefs >> 16) : 1;
         if (sortedLights) {
             this._collectLights(LIGHTTYPE_DIRECTIONAL, sortedLights[LIGHTTYPE_DIRECTIONAL], lightsFiltered, mask);
-            this._collectLights(LIGHTTYPE_POINT, sortedLights[LIGHTTYPE_POINT], lightsFiltered, mask, staticLightList);
+            this._collectLights(LIGHTTYPE_OMNI, sortedLights[LIGHTTYPE_OMNI], lightsFiltered, mask, staticLightList);
             this._collectLights(LIGHTTYPE_SPOT, sortedLights[LIGHTTYPE_SPOT], lightsFiltered, mask, staticLightList);
         }
         options.lights = lightsFiltered;

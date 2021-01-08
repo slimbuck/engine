@@ -32,7 +32,7 @@ import {
     SHADER_DEPTH,
     SORTMODE_NONE, SORTMODE_MANUAL
 } from '../scene/constants.js';
-import { BatchManager } from '../scene/batching.js';
+import { BatchManager } from '../scene/batching/batch-manager.js';
 import { ForwardRenderer } from '../scene/forward-renderer.js';
 import { GraphNode } from '../scene/graph-node.js';
 import { ImmediateData, LineBatch } from '../scene/immediate.js';
@@ -62,6 +62,7 @@ import { HtmlHandler } from '../resources/html.js';
 import { JsonHandler } from '../resources/json.js';
 import { MaterialHandler } from '../resources/material.js';
 import { ModelHandler } from '../resources/model.js';
+import { RenderHandler } from '../resources/render.js';
 import { ResourceLoader } from '../resources/loader.js';
 import { SceneHandler } from '../resources/scene.js';
 import { SceneSettingsHandler } from '../resources/scene-settings.js';
@@ -101,6 +102,7 @@ import { LayoutChildComponentSystem } from './components/layout-child/system.js'
 import { LayoutGroupComponentSystem } from './components/layout-group/system.js';
 import { LightComponentSystem } from './components/light/system.js';
 import { ModelComponentSystem } from './components/model/system.js';
+import { RenderComponentSystem } from './components/render/system.js';
 import { ParticleSystemComponentSystem } from './components/particle-system/system.js';
 import { RigidBodyComponentSystem } from './components/rigid-body/system.js';
 import { ScreenComponentSystem } from './components/screen/system.js';
@@ -421,6 +423,8 @@ function Application(canvas, options) {
 
     options.graphicsDeviceOptions.xrCompatible = true;
 
+    options.graphicsDeviceOptions.alpha = options.graphicsDeviceOptions.alpha || false;
+
     this.graphicsDevice = new GraphicsDevice(canvas, options.graphicsDeviceOptions);
     this.stats = new ApplicationStats(this.graphicsDevice);
     this._soundManager = new SoundManager(options);
@@ -569,7 +573,8 @@ function Application(canvas, options) {
                 var layers = self.scene.layers.layerList;
                 var subLayerEnabled = self.scene.layers.subLayerEnabled;
                 var isTransparent = self.scene.layers.subLayerList;
-                var rt = self.defaultLayerWorld.renderTarget;
+                // can't use self.defaultLayerWorld.renderTarget because projects that use the editor override default layers
+                var rt = self.scene.layers.getLayerById(LAYERID_WORLD).renderTarget;
                 var cam = this.cameras[cameraPass];
                 var layer;
                 var j;
@@ -718,6 +723,7 @@ function Application(canvas, options) {
     this.loader.addHandler("animclip", new AnimClipHandler());
     this.loader.addHandler("animstategraph", new AnimStateGraphHandler());
     this.loader.addHandler("model", new ModelHandler(this.graphicsDevice, this.scene.defaultMaterial));
+    this.loader.addHandler("render", new RenderHandler(this.assets));
     this.loader.addHandler("material", new MaterialHandler(this));
     this.loader.addHandler("texture", new TextureHandler(this.graphicsDevice, this.assets, this.loader));
     this.loader.addHandler("text", new TextHandler());
@@ -745,6 +751,7 @@ function Application(canvas, options) {
     this.systems.add(new AnimationComponentSystem(this));
     this.systems.add(new AnimComponentSystem(this));
     this.systems.add(new ModelComponentSystem(this));
+    this.systems.add(new RenderComponentSystem(this));
     this.systems.add(new CameraComponentSystem(this));
     this.systems.add(new LightComponentSystem(this));
     if (script.legacy) {
@@ -971,101 +978,6 @@ Object.assign(Application.prototype, {
         }
     },
 
-    /**
-     * @private
-     * @deprecated
-     * @function
-     * @name pc.Application#getSceneUrl
-     * @description Look up the URL of the scene hierarchy file via the name given to the scene in the editor. Use this to in {@link pc.Application#loadSceneHierarchy}.
-     * @param {string} name - The name of the scene file given in the Editor.
-     * @returns {string} The URL of the scene file.
-     */
-    getSceneUrl: function (name) {
-        // #ifdef DEBUG
-        console.warn("DEPRECATED: pc.Application#getSceneUrl is deprecated. Use pc.Application#scenes and pc.SceneRegistry#find instead.");
-        // #endif
-        var entry = this.scenes.find(name);
-        if (entry) {
-            return entry.url;
-        }
-        return null;
-    },
-
-    /**
-     * @private
-     * @deprecated
-     * @function
-     * @name pc.Application#loadSceneHierarchy
-     * @description Load a scene file, create and initialize the Entity hierarchy
-     * and add the hierarchy to the application root Entity.
-     * @param {string} url - The URL of the scene file. Usually this will be "scene_id.json".
-     * @param {pc.callbacks.LoadHierarchy} callback - The function to call after loading, passed (err, entity) where err is null if no errors occurred.
-     * @example
-     *
-     * app.loadSceneHierarchy("1000.json", function (err, entity) {
-     *     if (!err) {
-     *         var e = app.root.find("My New Entity");
-     *     } else {
-     *         // error
-     *     }
-     * });
-     */
-    loadSceneHierarchy: function (url, callback) {
-        // #ifdef DEBUG
-        console.warn("DEPRECATED: pc.Application#loadSceneHierarchy is deprecated. Use pc.Application#scenes and pc.SceneRegistry#loadSceneHierarchy instead.");
-        // #endif
-        this.scenes.loadSceneHierarchy(url, callback);
-    },
-
-    /**
-     * @private
-     * @deprecated
-     * @function
-     * @name pc.Application#loadSceneSettings
-     * @description Load a scene file and automatically apply the scene settings to the current scene.
-     * @param {string} url - The URL of the scene file. Usually this will be "scene_id.json".
-     * @param {pc.callbacks.LoadSettings} callback - The function called after the settings are applied. Passed (err) where err is null if no error occurred.
-     * @example
-     * app.loadSceneSettings("1000.json", function (err) {
-     *     if (!err) {
-     *       // success
-     *     } else {
-     *       // error
-     *     }
-     * });
-     */
-    loadSceneSettings: function (url, callback) {
-        // #ifdef DEBUG
-        console.warn("DEPRECATED: pc.Application#loadSceneSettings is deprecated. Use pc.Application#scenes and pc.SceneRegistry#loadSceneSettings instead.");
-        // #endif
-        this.scenes.loadSceneSettings(url, callback);
-    },
-
-    /**
-     * @private
-     * @deprecated
-     * @function
-     * @name pc.Application#loadScene
-     * @description Load a scene file.
-     * @param {string} url - The URL of the scene file. Usually this will be "scene_id.json".
-     * @param {pc.callbacks.LoadScene} callback - The function to call after loading, passed (err, entity) where err is null if no errors occurred.
-     * @example
-     *
-     * app.loadScene("1000.json", function (err, entity) {
-     *     if (!err) {
-     *         var e = app.root.find("My New Entity");
-     *     } else {
-     *         // error
-     *     }
-     * });
-     */
-    loadScene: function (url, callback) {
-        // #ifdef DEBUG
-        console.warn("DEPRECATED: pc.Application#loadScene is deprecated. Use pc.Application#scenes and pc.SceneRegistry#loadScene instead.");
-        // #endif
-        this.scenes.loadScene(url, callback);
-    },
-
     _preloadScripts: function (sceneData, callback) {
         if (!script.legacy) {
             callback();
@@ -1113,6 +1025,11 @@ Object.assign(Application.prototype, {
     _parseApplicationProperties: function (props, callback) {
         var i;
         var len;
+
+        // configure retrying assets
+        if (typeof props.maxAssetRetries === 'number' && props.maxAssetRetries > 0) {
+            this.loader.enableRetry(props.maxAssetRetries);
+        }
 
         // TODO: remove this temporary block after migrating properties
         if (!props.useDevicePixelRatio)
@@ -1497,6 +1414,7 @@ Object.assign(Application.prototype, {
         this.renderer._shadowMapUpdates = 0;
         this.graphicsDevice._shaderSwitchesPerFrame = 0;
         this.renderer._cullTime = 0;
+        this.renderer._layerCompositionUpdateTime = 0;
         this.renderer._sortTime = 0;
         this.renderer._skinTime = 0;
         this.renderer._morphTime = 0;
@@ -1633,9 +1551,8 @@ Object.assign(Application.prototype, {
         } else if (this._fillMode === FILLMODE_FILL_WINDOW) {
             width = windowWidth;
             height = windowHeight;
-        } else {
-            // FILLMODE_NONE use width and height that are provided
         }
+        // OTHERWISE: FILLMODE_NONE use width and height that are provided
 
         this.graphicsDevice.canvas.style.width = width + 'px';
         this.graphicsDevice.canvas.style.height = height + 'px';
@@ -1698,6 +1615,7 @@ Object.assign(Application.prototype, {
      * @param {number|null} [settings.render.skybox] - The asset ID of the cube map texture to be used as the scene's skybox. Defaults to null.
      * @param {number} settings.render.skyboxIntensity - Multiplier for skybox intensity.
      * @param {number} settings.render.skyboxMip - The mip level of the skybox to be displayed. Only valid for prefiltered cubemap skyboxes.
+     * @param {number[]} settings.render.skyboxRotation - Rotation of skybox.
      * @param {number} settings.render.lightmapSizeMultiplier - The lightmap resolution multiplier.
      * @param {number} settings.render.lightmapMaxResolution - The maximum lightmap resolution.
      * @param {number} settings.render.lightmapMode - The lightmap baking mode. Can be:
@@ -1722,6 +1640,7 @@ Object.assign(Application.prototype, {
      *         fog_start: 1,
      *         global_ambient: [0, 0, 0],
      *         skyboxIntensity: 1,
+     *         skyboxRotation: [0, 0, 0],
      *         fog_color: [0, 0, 0],
      *         lightmapMode: 1,
      *         fog: 'none',

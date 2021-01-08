@@ -176,7 +176,10 @@ Object.assign(ElementComponentSystem.prototype, {
             component.layers = data.layers.slice(0);
         }
 
-        component.type = data.type;
+        if (data.type !== undefined) {
+            component.type = data.type;
+        }
+
         if (component.type === ELEMENTTYPE_IMAGE) {
             if (data.rect !== undefined) {
                 component.rect = data.rect;
@@ -242,9 +245,8 @@ Object.assign(ElementComponentSystem.prototype, {
             if (data.shadowColor !== undefined) component.shadowColor = data.shadowColor;
             if (data.shadowOffset !== undefined) component.shadowOffset = data.shadowOffset;
             if (data.enableMarkup !== undefined) component.enableMarkup = data.enableMarkup;
-        } else {
-            // group
         }
+        // OTHERWISE: group
 
 
         // find screen

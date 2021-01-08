@@ -21,6 +21,7 @@ import { StandardMaterialOptionsBuilder } from './standard-material-options-buil
 import { Application } from '../../framework/application.js';
 
 import { standardMaterialCubemapParameters, standardMaterialTextureParameters } from './standard-material-parameters.js';
+import { Quat } from '../../math/quat.js';
 
 /**
  * @class
@@ -71,8 +72,8 @@ import { standardMaterialCubemapParameters, standardMaterialTextureParameters } 
  * @property {boolean} specularVertexColor Use mesh vertex colors for specular. If specularMap or are specularTint are set, they'll be multiplied by vertex colors.
  * @property {string} specularVertexColorChannel Vertex color channels to use for specular. Can be "r", "g", "b", "a", "rgb" or any swizzled combination.
  *
- * @property {boolean} enableGGXSpecular Enables GGX specular. Also enables anisotropy parameter to set material anisotropy.
- * @property {number} anisotropy Defines amount of anisotropy. Requires enableGGXSpecular is set to true.
+ * @property {boolean} enableGGXSpecular Enables GGX specular. Also enables {@link pc.StandardMaterial#anisotropy}  parameter to set material anisotropy.
+ * @property {number} anisotropy Defines amount of anisotropy. Requires {@link pc.StandardMaterial#enableGGXSpecular} is set to true.
  * * When anisotropy == 0, specular is isotropic.
  * * When anisotropy < 0, anistropy direction aligns with the tangent, and specular anisotropy increases as the anisotropy value decreases to minimum of -1.
  * * When anisotropy > 0, anistropy direction aligns with the bi-normal, and specular anisotropy increases as anisotropy value increases to maximum of 1.
@@ -154,8 +155,8 @@ import { standardMaterialCubemapParameters, standardMaterialTextureParameters } 
  * @property {boolean} opacityVertexColor Use mesh vertex colors for opacity. If opacityMap is set, it'll be multiplied by vertex colors.
  * @property {string} opacityVertexColorChannel Vertex color channels to use for opacity. Can be "r", "g", "b" or "a".
  *
- * @property {boolean} opacityFadesSpecular used to specify whether specular and reflections are faded out using {@link pc.Material#opacity}. Default is true. When set to false use {@link pc.Material#alphaFade} to fade out materials.
- * @property {number} alphaFade used to fade out materials when {@link pc.Material#opacityFadesSpecular} is set to false.
+ * @property {boolean} opacityFadesSpecular used to specify whether specular and reflections are faded out using {@link pc.StandardMaterial#opacity}. Default is true. When set to false use {@link pc.Material#alphaFade} to fade out materials.
+ * @property {number} alphaFade used to fade out materials when {@link pc.StandardMaterial#opacityFadesSpecular} is set to false.
  *
  * @property {pc.Texture|null} normalMap The main (primary) normal map of the material (default is null).
  * The texture must contains normalized, tangent space normals.
@@ -292,6 +293,8 @@ import { standardMaterialCubemapParameters, standardMaterialTextureParameters } 
  * * fastTbn: Use slightly cheaper normal mapping code (skip tangent space normalization). Can look buggy sometimes.
  * * refraction: if refraction is used.
  * * skyboxIntensity: if reflected skybox intensity should be modulated.
+ * * useCubeMapRotation: if cube map rotation is enabled.
+ * * useRightHandedCubeMap: if the cube map uses a right-handed coordinate system. The convention for pre-generated cubemaps is left-handed.
  * * useTexCubeLod: if textureCubeLodEXT function should be used to read prefiltered cubemaps. Usually true of iOS, false on other devices due to quality/performance balance.
  * * useInstancing: if hardware instancing compatible shader should be generated. Transform is read from per-instance {@link pc.VertexBuffer} instead of shader's uniforms.
  * * useMorphPosition: if morphing code should be generated to morph positions.
@@ -792,10 +795,10 @@ Object.assign(StandardMaterial.prototype, {
             if (!this.metalnessMap || this.metalness < 1) {
                 this._setParameter('material_metalness', this.metalness);
             }
+        }
 
-            if (this.enableGGXSpecular){
-                this._setParameter('material_anisotropy', this.anisotropy);
-            }
+        if (this.enableGGXSpecular){
+            this._setParameter('material_anisotropy', this.anisotropy);
         }
 
         if (this.clearCoat > 0) {
@@ -979,7 +982,7 @@ Object.assign(StandardMaterial.prototype, {
                     var atlas = [prefilteredCubeMap128, prefilteredCubeMap64, prefilteredCubeMap32,
                         prefilteredCubeMap16, prefilteredCubeMap8, prefilteredCubeMap4];
                     prefilteredCubeMap128.dpAtlas = generateDpAtlas(device, atlas);
-                    prefilteredCubeMap128.sh = shFromCubemap(prefilteredCubeMap16);
+                    prefilteredCubeMap128.sh = shFromCubemap(device, prefilteredCubeMap16);
                 }
                 this.dpAtlas = prefilteredCubeMap128.dpAtlas;
                 this.ambientSH = prefilteredCubeMap128.sh;
@@ -1007,6 +1010,10 @@ Object.assign(StandardMaterial.prototype, {
                 this._setParameter('texture_prefilteredCubeMap4', prefilteredCubeMap4);
             } else {
                 console.log("Can't use prefiltered cubemap: " + allMips + ", " + useTexCubeLod + ", " + prefilteredCubeMap128._levels);
+            }
+
+            if (this.useSkybox && !scene.skyboxRotation.equals(Quat.IDENTITY) && scene._skyboxRotationMat3) {
+                this._setParameter('cubeMapRotationMatrix', scene._skyboxRotationMat3.data);
             }
         }
 

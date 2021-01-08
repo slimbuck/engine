@@ -10,8 +10,6 @@ import { GraphNode } from '../scene/graph-node.js';
 
 import { Asset } from '../asset/asset.js';
 
-import { createScript } from './script.js';
-
 var components = ['x', 'y', 'z', 'w'];
 var vecLookup = [undefined, undefined, Vec2, Vec3, Vec4];
 
@@ -47,13 +45,17 @@ var rawToValue = function (app, args, value, old) {
 
                     if (field.array) {
                         result[field.name] = [];
-                        if (Array.isArray(value[field.name])) {
-                            for (j = 0; j < value[field.name].length; j++) {
-                                result[field.name].push(rawToValue(app, field, value[field.name][j]));
-                            }
+
+                        var arr = Array.isArray(value[field.name]) ? value[field.name] : [];
+
+                        for (j = 0; j < arr.length; j++) {
+                            result[field.name].push(rawToValue(app, field, arr[j]));
                         }
                     } else {
-                        result[field.name] = rawToValue(app, field, value[field.name]);
+                        // use the value of the field as it's passed into rawToValue otherwise
+                        // use the default field value
+                        var val = value.hasOwnProperty(field.name) ? value[field.name] : field.default;
+                        result[field.name] = rawToValue(app, field, val);
                     }
                 }
             }
@@ -162,6 +164,12 @@ function ScriptAttributes(scriptType) {
     this.index = { };
 }
 
+ScriptAttributes.reservedNames = new Set([
+    'app', 'entity', 'enabled', '_enabled', '_enabledOld', '_destroyed',
+    '__attributes', '__attributesRaw', '__scriptType', '__executionOrder',
+    '_callbacks', 'has', 'get', 'on', 'off', 'fire', 'once', 'hasEvent'
+]);
+
 /**
  * @function
  * @name pc.ScriptAttributes#add
@@ -235,7 +243,7 @@ ScriptAttributes.prototype.add = function (name, args) {
         console.warn('attribute \'' + name + '\' is already defined for script type \'' + this.scriptType.name + '\'');
         // #endif
         return;
-    } else if (createScript.reservedAttributes[name]) {
+    } else if (ScriptAttributes.reservedNames.has(name)) {
         // #ifdef DEBUG
         console.warn('attribute \'' + name + '\' is a reserved attribute name');
         // #endif
@@ -249,7 +257,21 @@ ScriptAttributes.prototype.add = function (name, args) {
             return this.__attributes[name];
         },
         set: function (raw) {
+            var evt = 'attr';
+            var evtName = 'attr:' + name;
+
             var old = this.__attributes[name];
+            // keep copy of old for the event below
+            var oldCopy = old;
+            // json types might have a 'clone' field in their
+            // schema so make sure it's not that
+            if (old && args.type !== 'json' && old.clone) {
+                // check if an event handler is there
+                // before cloning for performance
+                if (this._callbacks[evt] || this._callbacks[evtName]) {
+                    oldCopy = old.clone();
+                }
+            }
 
             // convert to appropriate type
             if (args.array) {
@@ -265,8 +287,8 @@ ScriptAttributes.prototype.add = function (name, args) {
                 this.__attributes[name] = rawToValue(this.app, args, raw, old);
             }
 
-            this.fire('attr', name, this.__attributes[name], old);
-            this.fire('attr:' + name, this.__attributes[name], old);
+            this.fire(evt, name, this.__attributes[name], oldCopy);
+            this.fire(evtName, this.__attributes[name], oldCopy);
         }
     });
 };
