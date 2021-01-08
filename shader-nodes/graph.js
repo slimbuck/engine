@@ -12,7 +12,7 @@ var TypeSystem = {
     deduceNodeTypes: function (node) {
         switch (node.type) {
             case 'value':
-                // output type just matches the type of the contained value
+                // output type is just the value type
                 node.outputTypes = [ node.data.value.type ];
                 break;
             case 'identifier':
@@ -273,11 +273,6 @@ Object.assign(Graph.prototype, {
                 }
             }
         });
-    },
-
-    // extract the values from the shader
-    extractValues: function () {
-
     },
 
     // Print the graph structure to the console
