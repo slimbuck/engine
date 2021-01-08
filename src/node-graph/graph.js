@@ -7,8 +7,8 @@ var Identifiers = {
 
 // type system implements type validation and deduction
 var TypeSystem = {
-    // Deduce a node's input and output types. At this point all upstream
-    // node types have already been deduced.
+    // Deduce a node's input and output types. At this point we assume
+    // that all upstream node types have already been deduced.
     deduceNodeTypes: function (node) {
         switch (node.type) {
             case 'value':
