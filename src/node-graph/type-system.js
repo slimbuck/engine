@@ -1,42 +1,6 @@
 
-// type system implements type validation and deduction
+// type system implements node graph type deduction and validation
 var TypeSystem = {
-    // Deduce a node's input and output types. At this point all upstream
-    // node types have already been deduced.
-    deduceNodeTypes: function (node) {
-        switch (node.type) {
-            case 'value':
-                // output type is just the value type
-                node.outputTypes = [ node.data.value.type ];
-                break;
-            case 'identifier':
-                // identifier type is provided by the system
-                node.outputTypes = [ Identifiers[node.data.name].type ];
-                break;
-            case 'add':
-            case 'mul':
-                if (node.connections) {
-                    // get the upstream types
-                    var upstreamTypes = TypeSystem.getUpstreamTypes(node);
-                    // calculate the containing type
-                    var containerType = TypeSystem.determineContainingType(upstreamTypes);
-                    if (containerType) {
-                        // use the container type for input and output types
-                        node.outputTypes = [ containerType ];
-                        node.connections.forEach(function (c) {
-                            c.type = containerType;
-                        });
-                    } else {
-                        // type error
-                    }
-                }
-                break;
-            case 'graph':
-                // TODO
-                break;
-        }
-    },
-
     // Test for valid type conversion between the source and destination type. Data types
     // much match and Vec can arbitrarily change dimension, unlike Mat and Texture.
     isValidTypeConversion: function (dstType, srcType) {

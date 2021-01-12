@@ -1,99 +1,7 @@
 
-// platform identifiers
-var Identifiers = {
-    time: { static: false, type: Types.Float, value: [0] },
-    platform: { static: true, type: Types.Float, value: [0] }
-};
-
-// type system implements type validation and deduction
-var TypeSystem = {
-    // Deduce a node's input and output types. At this point we assume
-    // that all upstream node types have already been deduced.
-    deduceNodeTypes: function (node) {
-        switch (node.type) {
-            case 'value':
-                // output type is just the value type
-                node.outputTypes = [ node.data.value.type ];
-                break;
-            case 'identifier':
-                // identifier type is provided by the system
-                node.outputTypes = [ Identifiers[node.data.name].type ];
-                break;
-            case 'add':
-            case 'mul':
-                if (node.connections) {
-                    // get the upstream types
-                    var upstreamTypes = TypeSystem.getUpstreamTypes(node);
-                    // calculate the containing type
-                    var containerType = TypeSystem.determineContainingType(upstreamTypes);
-                    if (containerType) {
-                        // use the container type for input and output types
-                        node.outputTypes = [ containerType ];
-                        node.connections.forEach(function (c) {
-                            c.type = containerType;
-                        });
-                    } else {
-                        // type error
-                    }
-                }
-                break;
-            case 'graph':
-                // TODO
-                break;
-        }
-    },
-
-    // Test for valid type conversion between the source and destination type. Data types
-    // much match and Vec can arbitrarily change dimension, unlike Mat and Texture.
-    isValidTypeConversion: function (dstType, srcType) {
-        return (srcType.dataType === dstType.dataType) &&
-               (srcType.dataType === DataType.Vec || srcType.dimension === dstType.dimension);
-    },
-
-    // Given a list of types, determine the containing type which encompasses
-    // all the input types. For example, given the list [Float, Vec2, Vec3], returns
-    // Vec3. Mixed data types are not supported.
-    determineContainingType: function (types) {
-        var dataType = null;
-        var dimension = 0;
-        for (var i=0; i<types.length; ++i) {
-            var type = types[i];
-            if (type) {
-                if (!dataType) {
-                    dataType = type.dataType;
-                    dimension = type.dimension;
-                } else {
-                    if (dataType !== type.dataType) {
-                        console.log('type error');
-                        return null;        // type error, input contains mixed types
-                    } else {
-                        dimension = Math.max(dimension, type.dimension);
-                    }
-                }
-            }
-        }
-        switch (dataType) {
-            case DataType.Vec:
-                return [null, Types.Float, Types.Vec2, Types.Vec3, Types.Vec4][dimension];
-            case DataType.Mat:
-                return [null, null, Types.Mat2, Types.Mat3, Types.Mat4][dimension];
-            case DataType.Texture:
-                return [Types.Texture, null, null, null, null][dimension];
-            default:
-                return null;
-        }
-    },
-
-    // Make a list of connected upstream types
-    getUpstreamTypes: function (node) {
-        return node.connections ? node.connections.map(function (c) {
-                return c.node.outputTypes[c.output];
-            }) : null;
-    }
-};
-
 // graph
-var Graph = function (graphData) {
+var Graph = function (graphData, system) {
+    this.system = system;
     this.id = null;
     this.nodes = [ ];
     this.inputs = [ ];
@@ -105,39 +13,52 @@ var Graph = function (graphData) {
 };
 
 Object.assign(Graph.prototype, {
-    createNode: function (type, data) {
-        // construct node data
-        var nodeData;
-        switch (type) {
-            case 'value':
-                nodeData = {
-                    name: data.name,
-                    static: data.static,
-                    value: new Value(data.type, data.data)
-                };
-                break;
-            default:
-                nodeData = data;
-                break;
+    createNode: function (typeString, data) {
+        // get the node type object
+        var type = NodeTypes[typeString];
+        if (!type) {
+            return null;                    // invalid node type
         }
-        this.nodes.push({
-            type: type,
-            data: nodeData,
-            connections: null,              // array of input connections - not always required and will be allocated on demand
-            outputTypes: [],                // output types, sometimes deduced after graph construction
-        });
+
+        // allow node types to process and validate construction data
+        var nodeData = type.createData ? type.createData(data) : data;
+
+        // construct the node instance
+        var node = new Node(this, type, nodeData);
+
+        // store it
+        this.nodes.push(node);
+
+        // and return
+        return node;
     },
 
     createConnection: function (node, input, srcNode, srcOutput) {
+        // get the node
         var n = this.nodes[node];
+        if (!n) {
+            return null;                    // invalid connection
+        }
+
+        // get the upstream node
+        var sn = this.nodes[srcNode];
+        if (!sn) {
+            return null;                    // invalid connection
+        }
+
+        // might be the node's first connection
         if (n.connections === null) {
             n.connections = [ ];
         }
-        n.connections[input || 0] = {
-            node: this.nodes[srcNode],      // input node
-            output: srcOutput || 0,         // input node output
-            type: null                      // we'll convert the input data to this type
-        };
+
+        // create the connection instance
+        var connection = new Connection(sn, srcOutput);
+
+        // store it
+        n.connections[input || 0] = connection;
+
+        // and return
+        return connection;
     },
 
     createInput: function (node, input) {
@@ -188,9 +109,11 @@ Object.assign(Graph.prototype, {
         }
     },
 
-    // walk the graph nodes in execution order while skipping duplicates
-    // seen is a Set() storing the nodes already seen
-    // callback takes a single parameter, the node
+    // walk the graph in execution order starting at node. update
+    // seen structure with nodes we've already seen and skip those present.
+    // node - the starting node to walk
+    // callback - function takes a single parameter, the node
+    // seen - a Set() storing the nodes already seen
     walk: function (node, callback, seen) {
         function recurse(node) {
             if (seen.has(node)) {
@@ -232,12 +155,13 @@ Object.assign(Graph.prototype, {
     // generally only the core value nodes and identifiers have types.
     deduceNodeTypes: function () {
         this.walkOutputNodes(function (node) {
-            TypeSystem.deduceNodeTypes(node);
+            node.deduceTypes();
         });
     },
 
-    // Walk the graph checking that automatic conversions (i.e. that
-    // conversions between upstream types and input types are valid).
+    // Walk the graph checking that automatic conversions (i.e. check
+    // that automatic conversions between upstream types and input types
+    // are valid).
     // At this point it is assumed types have been propagated throughout
     // the graph.
     performTypeChecking: function () {

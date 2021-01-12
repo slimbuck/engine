@@ -45,13 +45,21 @@ var testGraphData = {
     ]
 };
 
+// create the graph registry and register graph data
+var graphSystem = new GraphSystem();
+graphSystem.add(doublerGraphData);
+graphSystem.add(testGraphData);
+
 // generate a test graph
 var graph = new Graph(testGraphData);
+
 // print it
 graph.debugPrint();
 // perform type checking - this should fail as we haven't run the 'deduceNodeTypes' yet
 graph.performTypeChecking();
+
 console.log('generating types...............................');
+
 // deduce node types
 graph.deduceNodeTypes();
 // graph should now have more info
