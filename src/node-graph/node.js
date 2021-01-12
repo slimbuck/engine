@@ -16,7 +16,7 @@ var Node = function (graph, type, data) {
 
     // The node's output types. In some cases these will be
     // deduced by the type system
-    this.outputTypes = [];
+    this.outputTypes = null;
 };
 
 Object.assign(Node.prototype, {

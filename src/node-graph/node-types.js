@@ -86,10 +86,22 @@ var GraphNode = {
     deduceTypes: function (node) {
         var data = node.data;
 
+        // get upstream connected types
         var upstreamTypes = TypeSystem.getUpstreamTypes(node);
 
         // instantiate the graph based on upstream types
-        data.graphInstance = node.graph.system.instantiateGraph(data.graphId, upstreamTypes);
+        var graphInstance = node.graph.system.instantiateGraph(data.graphId, upstreamTypes);
+
+        // populate types from the graph instance types
+        node.inputTypes = graphInstance.inputs.map(function (i) {
+            var c = i ? i.node.connections[i.output] : null
+            return c ? c.type : null;
+        });
+        node.outputTypes = graphInstance.outputs.map(function (o) {
+            return o ? o.node.outputTypes[o.output] : null;
+        });
+
+        data.graphInstance = graphInstance;
     }
 };
 

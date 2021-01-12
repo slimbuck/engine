@@ -22,7 +22,8 @@ Object.assign(GraphSystem.prototype, {
             // otherwise, generate graph instance
             var graphData = this.graphData[id];
             if (!graphData) {
-                return null;                            // invalid graph id
+                // invalid graph id
+                return null;
             }
 
             var graph = new Graph(graphData, this);

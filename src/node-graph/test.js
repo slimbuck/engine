@@ -50,6 +50,8 @@ var graphSystem = new GraphSystem();
 graphSystem.add(doublerGraphData);
 graphSystem.add(testGraphData);
 
+var g = graphSystem.instantiateGraph(1);
+
 // generate a test graph
 var graph = new Graph(testGraphData);
 
