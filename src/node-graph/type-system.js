@@ -5,7 +5,7 @@ var TypeSystem = {
     // much match and Vec can arbitrarily change dimension, unlike Mat and Texture.
     isValidTypeConversion: function (dstType, srcType) {
         return (srcType.dataType === dstType.dataType) &&
-               (srcType.dataType === DataType.Vec || srcType.dimension === dstType.dimension);
+               (srcType.dataType === DataType.vec || srcType.dimension === dstType.dimension);
     },
 
     // Given a list of types, determine the containing type which encompasses
@@ -31,12 +31,12 @@ var TypeSystem = {
             }
         }
         switch (dataType) {
-            case DataType.Vec:
-                return [null, Types.Float, Types.Vec2, Types.Vec3, Types.Vec4][dimension];
-            case DataType.Mat:
-                return [null, null, Types.Mat2, Types.Mat3, Types.Mat4][dimension];
-            case DataType.Texture:
-                return [Types.Texture, null, null, null, null][dimension];
+            case DataType.vec:
+                return [null, Types.float, Types.vec2, Types.vec3, Types.vec4][dimension];
+            case DataType.mat:
+                return [null, null, Types.mat2, Types.mat3, Types.mat4][dimension];
+            case DataType.texture:
+                return [Types.texture, null, null, null, null][dimension];
             default:
                 return null;
         }

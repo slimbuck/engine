@@ -3,10 +3,9 @@
 var Graph = function (graphData, system, inputTypes) {
     this.id = null;
     this.nodes = [ ];
+    this.nodesByType = { };
     this.system = system || null;
     this.inputTypes = inputTypes || null;
-    this.inputNode = null;
-    this.outputNode = null;
 
     if (graphData) {
         this.load(graphData);
@@ -26,16 +25,17 @@ Object.assign(Graph.prototype, {
         var nodeData = type.createData ? type.createData(data) : data;
 
         // construct the node instance
-        var node = new Node(this, type, nodeData);
+        var node = new Node(type, nodeData);
 
-        // store it
+        // store the node by id
         this.nodes.push(node);
 
-        // keep tabs on the optional input and output nodes
-        if (node.type === NodeTypes.input) {
-            this.inputNode = node;
-        } else if (node.type === NodeTypes.output) {
-            this.outputNode = node;
+        // store the node by type
+        var byType = this.nodesByType[type.name];
+        if (byType) {
+            byType.push(node);
+        } else {
+            this.nodesByType[type.name] = [node];
         }
 
         // and return
@@ -128,10 +128,10 @@ Object.assign(Graph.prototype, {
     // Perform a depth first walk of the graph starting at the 
     // output nodes of the graph
     walkOutputs: function (callback) {
-        var rootNode = this.outputNode;
+        var rootNode = this.nodesByType[NodeTypes.output.name];
         if (rootNode) {
             var seen = new Set();
-            this.walk(rootNode, callback, seen);
+            this.walk(rootNode[0], callback, seen);
         }
     },
 

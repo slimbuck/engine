@@ -22,7 +22,8 @@ var IdentifierNode = {
 
     createData: function (data) {
         return {
-            name: data.name
+            name: data.name,
+            static: !!data.static
         }
     },
 
@@ -44,7 +45,7 @@ var AddNode = {
             var upstreamTypes = TypeSystem.getUpstreamTypes(node);
             // calculate the containing type
             var containerType = TypeSystem.determineContainingType(upstreamTypes);
-            if (containerType && containerType.dataType === DataType.Vec) {
+            if (containerType && containerType.dataType === DataType.vec) {
                 // use the container type for input and output types
                 node.outputTypes = [ containerType ];
                 node.connections.forEach(function (c) {
@@ -70,7 +71,7 @@ var MulNode = {
             var upstreamTypes = TypeSystem.getUpstreamTypes(node);
             // calculate the containing type
             var containerType = TypeSystem.determineContainingType(upstreamTypes);
-            if (containerType && containerType.dataType === DataType.Vec) {
+            if (containerType && containerType.dataType === DataType.vec) {
                 // use the container type for input and output types
                 node.outputTypes = [ containerType ];
                 node.connections.forEach(function (c) {
@@ -89,7 +90,7 @@ var GraphNode = {
     createData: function (data) {
         return {
             graphId: data.graphId,
-            graphInstance: null
+            graph: null                 // graph instance
         };
     },
 
@@ -100,28 +101,28 @@ var GraphNode = {
         var upstreamTypes = TypeSystem.getUpstreamTypes(node);
 
         // instantiate the graph based on upstream types
-        var graphInstance = node.graph.system.instantiateGraph(data.graphId, upstreamTypes);
+        var graph = this.system.instantiateGraph(data.graphId, upstreamTypes);
 
         // populate types from the graph instance types
-        var graphInputNode = graphInstance.inputNode;
+        var graphInputNode = graph.nodesByType['input'];
         if (graphInputNode) {
             node.connections.forEach(function (c, i) {
                 if (c) {
-                    c.type = graphInputNode.outputTypes[i];
+                    c.type = graphInputNode[0].outputTypes[i];
                 }
             });
         }
 
         // populate output types
-        var graphOutputNode = graphInstance.outputNode;
+        var graphOutputNode = graph.nodesByType['output'];
         if (graphOutputNode) {
-            node.outputTypes = graphOutputNode.connections.map(function (c) {
+            node.outputTypes = graphOutputNode[0].connections.map(function (c) {
                 return c ? c.type : null;
             });
         }
 
         // store the instance
-        data.graphInstance = graphInstance;
+        data.graph = graph;
     }
 };
 

@@ -1,9 +1,6 @@
 
 // node
-var Node = function (graph, type, data) {
-    // tmp?
-    this.graph = graph;
-
+var Node = function (type, data) {
     // node type (ValueNode, AddNode, MulNode, GraphNode...)
     this.type = type;
 

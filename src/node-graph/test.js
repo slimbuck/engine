@@ -4,7 +4,7 @@ var doublerGraphData = {
     id: 0,
     nodes: [
         { type: 'input' },
-        { type: 'value', data: { name: 'two', static: true, type: 'Float', data: [2] } },
+        { type: 'value', data: { name: 'two', static: true, type: 'float', data: [2] } },
         { type: 'mul' },
         { type: 'output' }
     ],
@@ -18,11 +18,11 @@ var doublerGraphData = {
 var testGraphData = {
     id: 1,
     nodes: [
-        { type: 'value', data: { name: 'a vec 2', static: true, type: 'Vec2', data: [0, 1] } },
-        { type: 'value', data: { name: 'a vec 3', static: true, type: 'Vec3', data: [1, 2, 3] } },
+        { type: 'value', data: { name: 'a vec 2', static: true, type: 'vec2', data: [0, 1] } },
+        { type: 'value', data: { name: 'a vec 3', static: true, type: 'vec3', data: [1, 2, 3] } },
         { type: 'add' },
         { type: 'graph', data: { graphId: 0 } },
-        { type: 'value', data: { name: 'a vec 4', static: true, type: 'Vec4', data: [4, 5, 6, 7] } },
+        { type: 'value', data: { name: 'a vec 4', static: true, type: 'vec4', data: [4, 5, 6, 7] } },
         { type: 'add' },
         { type: 'graph', data: { graphId: 0 } },
         { type: 'output' }
