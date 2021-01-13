@@ -42,3 +42,7 @@ graphSystem.add(doublerGraphData);
 graphSystem.add(testGraphData);
 
 var g = graphSystem.instantiateGraph(1);
+
+// evaluate glsl
+var result = GlslEval(g, { });
+console.log("glsl=\n" + result.join("\n"));
