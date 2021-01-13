@@ -1,11 +1,12 @@
 
 // graph
-var Graph = function (graphData, system) {
-    this.system = system;
+var Graph = function (graphData, system, inputTypes) {
     this.id = null;
     this.nodes = [ ];
-    this.inputs = [ ];
-    this.outputs = [ ];
+    this.system = system || null;
+    this.inputTypes = inputTypes || null;
+    this.inputNode = null;
+    this.outputNode = null;
 
     if (graphData) {
         this.load(graphData);
@@ -17,7 +18,8 @@ Object.assign(Graph.prototype, {
         // get the node type object
         var type = NodeTypes[typeString];
         if (!type) {
-            return null;                    // invalid node type
+            // invalid/unrecognized node type
+            return null;
         }
 
         // allow node types to process and validate construction data
@@ -28,6 +30,13 @@ Object.assign(Graph.prototype, {
 
         // store it
         this.nodes.push(node);
+
+        // keep tabs on the optional input and output nodes
+        if (node.type === NodeTypes.input) {
+            this.inputNode = node;
+        } else if (node.type === NodeTypes.output) {
+            this.outputNode = node;
+        }
 
         // and return
         return node;
@@ -61,21 +70,11 @@ Object.assign(Graph.prototype, {
         return connection;
     },
 
-    createInput: function (node, input) {
-        this.inputs.push({ node: this.nodes[node], input: input || 0 });
-    },
-
-    createOutput: function (node, output) {
-        this.outputs.push({ node: this.nodes[node], output: output || 0 });
-    },
-
     // load graph data
     load: function (graphData) {
-        var i;
+        var i, j;
         var nodes = graphData.nodes;
         var connections = graphData.connections;
-        var inputs = graphData.inputs;
-        var outputs = graphData.outputs;
 
         // id
         this.id = graphData.id;
@@ -89,22 +88,9 @@ Object.assign(Graph.prototype, {
         // connections
         for (i=0; i<connections.length; ++i) {
             var c = connections[i];
-            this.createConnection(c.node, c.input, c.srcNode, c.srcOutput);
-        }
-
-        // inputs
-        if (inputs) {
-            for (i=0; i<inputs.length; ++i) {
-                var i = inputs[i];
-                this.createInput(i.node, i.input);
-            }
-        }
-
-        // outputs
-        if (outputs) {
-            for (i=0; i<outputs.length; ++i) {
-                var o = outputs[i];
-                this.createOutput(o.node, o.output);
+            for (j=0; j<c.inputs.length; ++j) {
+                var input = c.inputs[j];
+                this.createConnection(c.node, j, input.node, input.output);
             }
         }
     },
@@ -141,21 +127,19 @@ Object.assign(Graph.prototype, {
 
     // Perform a depth first walk of the graph starting at the 
     // output nodes of the graph
-    walkOutputNodes: function (callback) {
-        var seen = new Set();
-
-        // walk all nodes flagged as outputs
-        for (var i=0; i<this.outputs.length; ++i) {
-            var output = this.outputs[i];
-            this.walk(output.node, callback, seen);
+    walkOutputs: function (callback) {
+        var rootNode = this.outputNode;
+        if (rootNode) {
+            var seen = new Set();
+            this.walk(rootNode, callback, seen);
         }
     },
 
     // Propagate input and output types around the graph. At load time
     // generally only the core value nodes and identifiers have types.
     deduceNodeTypes: function () {
-        this.walkOutputNodes(function (node) {
-            node.deduceTypes();
+        this.walkOutputs(function (node) {
+            node.type.deduceTypes.call(this, node);
         });
     },
 
@@ -165,7 +149,7 @@ Object.assign(Graph.prototype, {
     // At this point it is assumed types have been propagated throughout
     // the graph.
     performTypeChecking: function () {
-        this.walkOutputNodes(function (node) {
+        this.walkOutputs(function (node) {
             // run through node connections checking upstream vs input type
             if (node.connections) {
                 for (var i=0; i<node.connections.length; ++i) {
@@ -201,37 +185,33 @@ Object.assign(Graph.prototype, {
 
     // Print the graph structure to the console
     debugPrint: function () {
-        this.walkOutputNodes(function (node) {
+        console.log("graph id=" + this.id);
+        this.walkOutputs(function (node) {
             // node basics
-            console.log("node " + this.nodes.indexOf(node) + " " + node.type);
+            console.log("    node " + this.nodes.indexOf(node) + " " + node.type.name);
             // node data
-            console.log("    data=" + JSON.stringify(node.data));
+            if (node.data) {
+                if (node.type === NodeTypes.graph) {
+                    console.log("        data={graphId=" + node.data.graphId + "}");
+                } else {
+                    console.log("        data=" + JSON.stringify(node.data));
+                }
+            }
             // node connections
             if (node.connections) {
                 var i;
                 for (i=0; i<node.connections.length; ++i) {
                     var c = node.connections[i];
-                    console.log("    connection" +
+                    console.log("        connection" +
                                 " node=" + this.nodes.indexOf(c.node) +
                                 " output=" + c.output +
                                 " type=" + (c.type ? c.type.name : "null"));
                 }
             }
             // output types
-            console.log("    outputTypes=" + JSON.stringify(node.outputTypes.map(function (t) {
+            console.log("        outputTypes=" + (node.outputTypes ? JSON.stringify(node.outputTypes.map(function (t) {
                 return t.name;
-            })));
+            })) : null));
         });
-    }
-});
-
-// shader graph
-var ShaderGraph = function () {
-    this.graphsById = { };
-};
-
-Object.assign(ShaderGraph.prototype, {
-    addGraph: function (graph) {
-        this.graphsById[graph.id] = graph;
     }
 });

@@ -3,17 +3,14 @@
 var doublerGraphData = {
     id: 0,
     nodes: [
+        { type: 'input' },
         { type: 'value', data: { name: 'two', static: true, type: 'Float', data: [2] } },
         { type: 'mul' },
+        { type: 'output' }
     ],
     connections: [
-        { node: 1, input: 0, srcNode: 0, srcOutput: 0 }
-    ],
-    inputs: [
-        { node: 1, input: 1 }
-    ],
-    outputs: [
-        { node: 1, output: 0 }
+        { node: 2, inputs: [ { node: 0 }, { node: 1} ] },
+        { node: 3, inputs: [ { node: 2 } ] }
     ]
 };
 
@@ -21,27 +18,21 @@ var doublerGraphData = {
 var testGraphData = {
     id: 1,
     nodes: [
-        { type: 'value', data: { name: 'my vec 2', static: true, type: 'Vec2', data: [0, 1] } },
-        { type: 'value', data: { name: 'my vec 3', static: true, type: 'Vec3', data: [1, 2, 3] } },
-        { type: 'value', data: { name: 'my vec 4', static: true, type: 'Vec4', data: [4, 5, 6, 7] } },
-        { type: 'identifier', data: { name: 'time' } },
+        { type: 'value', data: { name: 'a vec 2', static: true, type: 'Vec2', data: [0, 1] } },
+        { type: 'value', data: { name: 'a vec 3', static: true, type: 'Vec3', data: [1, 2, 3] } },
         { type: 'add' },
         { type: 'graph', data: { graphId: 0 } },
-        { type: 'graph', data: { graphId: 0 } }
+        { type: 'value', data: { name: 'a vec 4', static: true, type: 'Vec4', data: [4, 5, 6, 7] } },
+        { type: 'add' },
+        { type: 'graph', data: { graphId: 0 } },
+        { type: 'output' }
     ],
     connections: [
-        { node: 4, input: 0, srcNode: 0, srcOutput: 0 },
-        { node: 4, input: 1, srcNode: 1, srcOutput: 0 },
-        { node: 4, input: 2, srcNode: 2, srcOutput: 0 },
-        { node: 4, input: 3, srcNode: 3, srcOutput: 0 },
-        { node: 5, input: 0, srcNode: 4, srcOutput: 0 },
-        { node: 6, input: 0, srcNode: 5, srcOutput: 0 }
-    ],
-    inputs: [
-        
-    ],
-    outputs: [
-        { node: 6, output: 0 }
+        { node: 2, inputs: [ { node: 0 }, { node: 1 } ] },
+        { node: 3, inputs: [ { node: 2 } ] },
+        { node: 5, inputs: [ { node: 3 }, { node: 4 } ] },
+        { node: 6, inputs: [ { node: 5 } ] },
+        { node: 7, inputs: [ { node: 6 } ] }
     ]
 };
 
@@ -51,27 +42,3 @@ graphSystem.add(doublerGraphData);
 graphSystem.add(testGraphData);
 
 var g = graphSystem.instantiateGraph(1);
-
-// generate a test graph
-var graph = new Graph(testGraphData);
-
-// print it
-graph.debugPrint();
-// perform type checking - this should fail as we haven't run the 'deduceNodeTypes' yet
-graph.performTypeChecking();
-
-console.log('generating types...............................');
-
-// deduce node types
-graph.deduceNodeTypes();
-// graph should now have more info
-graph.debugPrint();
-// type checking should now succeed
-graph.performTypeChecking();
-
-/*
-// contruct a shader graph from subgraphs
-var shaderGraph = new ShaderGraph();
-shaderGraph.addGraph(new Graph(doublerGraphData));
-shaderGraph.addGraph(new Graph(testGraphData));
-*/

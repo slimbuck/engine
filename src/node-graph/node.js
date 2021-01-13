@@ -18,9 +18,3 @@ var Node = function (graph, type, data) {
     // deduced by the type system
     this.outputTypes = null;
 };
-
-Object.assign(Node.prototype, {
-    deduceTypes: function () {
-        this.type.deduceTypes(this);
-    }
-});

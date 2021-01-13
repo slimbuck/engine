@@ -2,6 +2,8 @@
 // implementations of the supported node types
 
 var ValueNode = {
+    name: 'value',
+
     createData: function (data) {
         return {
             name: data.name,
@@ -16,6 +18,8 @@ var ValueNode = {
 };
 
 var IdentifierNode = {
+    name: 'identifier',
+
     createData: function (data) {
         return {
             name: data.name
@@ -28,6 +32,8 @@ var IdentifierNode = {
 };
 
 var AddNode = {
+    name: 'add',
+
     createData: function (data) {
         return null;
     },
@@ -52,6 +58,8 @@ var AddNode = {
 };
 
 var MulNode = {
+    name: 'mul',
+
     createData: function (data) {
         return null;
     },
@@ -76,6 +84,8 @@ var MulNode = {
 };
 
 var GraphNode = {
+    name: 'graph',
+
     createData: function (data) {
         return {
             graphId: data.graphId,
@@ -93,22 +103,67 @@ var GraphNode = {
         var graphInstance = node.graph.system.instantiateGraph(data.graphId, upstreamTypes);
 
         // populate types from the graph instance types
-        node.inputTypes = graphInstance.inputs.map(function (i) {
-            var c = i ? i.node.connections[i.output] : null
-            return c ? c.type : null;
-        });
-        node.outputTypes = graphInstance.outputs.map(function (o) {
-            return o ? o.node.outputTypes[o.output] : null;
-        });
+        var graphInputNode = graphInstance.inputNode;
+        if (graphInputNode) {
+            node.connections.forEach(function (c, i) {
+                if (c) {
+                    c.type = graphInputNode.outputTypes[i];
+                }
+            });
+        }
 
+        // populate output types
+        var graphOutputNode = graphInstance.outputNode;
+        if (graphOutputNode) {
+            node.outputTypes = graphOutputNode.connections.map(function (c) {
+                return c ? c.type : null;
+            });
+        }
+
+        // store the instance
         data.graphInstance = graphInstance;
     }
 };
 
+var InputNode = {
+    name: 'input',
+
+    createData: function (data) {
+        return null;
+    },
+
+    deduceTypes: function (node) {
+        var graphInputTypes = this.inputTypes;
+        if (graphInputTypes) {
+            // the graph was given input connection types, use those
+            node.outputTypes = graphInputTypes.slice();
+        }
+    }
+};
+
+var OutputNode = {
+    name: 'output',
+
+    createData: function (data) {
+        return null;
+    },
+
+    deduceTypes: function (node) {
+        // output types mirror input types
+        node.connections.map(function (c) {
+            if (c) {
+                c.type = c.node.outputTypes[c.output];
+            }
+        });
+    }
+};
+
 var NodeTypes = {
-    'value': ValueNode,
-    'identifier': IdentifierNode,
-    'add': AddNode,
-    'mul': MulNode,
-    'graph': GraphNode
+    value: ValueNode,
+    identifier: IdentifierNode,
+    add: AddNode,
+    mul: MulNode,
+    graph: GraphNode,
+    input: InputNode,
+    output: OutputNode
 };
