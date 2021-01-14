@@ -151,10 +151,13 @@ var OutputNode = {
 
     deduceTypes: function (node) {
         // output types mirror input types
-        node.connections.map(function (c) {
+        node.connections.forEach(function (c) {
             if (c) {
                 c.type = c.node.outputTypes[c.output];
             }
+        });
+        node.outputTypes = node.connections.map(function (c) {
+            return c ? c.type : null;
         });
     }
 };

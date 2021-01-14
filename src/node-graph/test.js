@@ -23,7 +23,7 @@ var testGraphData = {
         { type: 'add' },
         { type: 'graph', data: { graphId: 0 } },
         { type: 'value', data: { name: 'a vec 4', static: true, type: 'vec4', data: [4, 5, 6, 7] } },
-        { type: 'add' },
+        { type: 'mul' },
         { type: 'graph', data: { graphId: 0 } },
         { type: 'output' }
     ],
@@ -44,5 +44,4 @@ graphSystem.add(testGraphData);
 var g = graphSystem.instantiateGraph(1);
 
 // evaluate glsl
-var result = GlslEval(g, { });
-console.log("glsl=\n" + result.join("\n"));
+console.log("glsl:\n" + GlslEval(g));
