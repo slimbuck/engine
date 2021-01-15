@@ -1,7 +1,7 @@
 
 // node
 var Node = function (type, data) {
-    // node type (ValueNode, AddNode, MulNode, GraphNode...)
+    // node type (NodeTypes.value, NodeTypes.add, NodeTypes.graph)
     this.type = type;
 
     // node data struct

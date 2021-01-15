@@ -45,3 +45,5 @@ var g = graphSystem.instantiateGraph(1);
 
 // evaluate glsl
 console.log("glsl:\n" + GlslEval(g));
+
+MemEval(g);

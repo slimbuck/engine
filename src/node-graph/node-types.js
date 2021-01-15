@@ -8,7 +8,7 @@ var ValueNode = {
         return {
             name: data.name,
             static: !!data.static,
-            value: new Value(data.type, data.data)
+            value: new Value(Types[data.type], data.data)
         };
     },
 

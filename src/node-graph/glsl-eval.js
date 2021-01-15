@@ -195,8 +195,8 @@ var GlslEvalContext = function () {
 };
 
 Object.assign(GlslEvalContext.prototype, {
-    identifier: function () {
-        return "" + this.nextId++;
+    identifier: function (hint) {
+        return (hint || "") + this.nextId++;
     },
 
     // generate a unique identifier
@@ -206,6 +206,14 @@ Object.assign(GlslEvalContext.prototype, {
 });
 
 var GlslEvalGraph = function (graph, context) {
+    // evaluate any sub graphs first. these will be translated to callable functions
+    // and must be output before this graph code.
+    graph.walkOutputs(function (node) {
+        if (node.type.name === 'graph') {
+            GlslEvalGraph(node.data.graph, context);
+        }
+    });
+
     // generate ids for node outputs
     graph.walkOutputs(function (node) {
         context.symbolTable.set(node, node.outputTypes ? node.outputTypes.map(function (o) {
@@ -255,14 +263,7 @@ var GlslEval = function (graph) {
     // construct an evaluation context
     var context = new GlslEvalContext();
 
-    // evaluate any sub graphs first. these will be translated to callable functions
-    // and must be output before this graph code.
-    graph.walkOutputs(function (node) {
-        if (node.type.name === 'graph') {
-            GlslEvalGraph(node.data.graph, context);
-        }
-    });
-
+    // evaluate the graph
     GlslEvalGraph(graph, context);
 
     return context.output.join("\n");
