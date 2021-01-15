@@ -91,7 +91,9 @@ var MemEvalGraph = function (graph, context) {
         if (handler) {
             var outputs = handler.call(graph, node, context, inputs);
             context.symbolTable.set(node, outputs);
-            console.log(node.type.name + '=' + JSON.stringify(outputs));
+            console.log(node.type.name + '=' + outputs.map(function (o) {
+                return JSON.stringify(o.data);
+            }).join(","));
         }
     });
 
