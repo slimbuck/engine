@@ -21,7 +21,7 @@ import {
     SEMANTIC_ATTR, SEMANTIC_POSITION,
     STENCILOP_KEEP,
     TEXHINT_SHADOWMAP
-} from '../graphics/graphics.js';
+} from '../graphics/constants.js';
 import { createShaderFromCode } from '../graphics/program-lib/utils.js';
 import { drawQuadWithShader } from '../graphics/simple-post-effect.js';
 import { shaderChunks } from '../graphics/program-lib/chunks/chunks.js';
@@ -93,8 +93,8 @@ var viewR = new Mat4();
 var viewPosL = new Vec3();
 var viewPosR = new Vec3();
 var projL, projR;
-var viewMat3L = new Mat4();
-var viewMat3R = new Mat4();
+var viewMat3L = new Mat3();
+var viewMat3R = new Mat3();
 var viewProjMatL = new Mat4();
 var viewProjMatR = new Mat4();
 
