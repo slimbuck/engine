@@ -1,11 +1,10 @@
 
 // graph
-var Graph = function (graphData, system, inputTypes) {
+var Graph = function (graphData, system) {
     this.id = null;
     this.nodes = [ ];
     this.nodesByType = { };
     this.system = system || null;
-    this.inputTypes = inputTypes || null;
 
     if (graphData) {
         this.load(graphData);

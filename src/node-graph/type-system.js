@@ -40,12 +40,5 @@ var TypeSystem = {
             default:
                 return null;
         }
-    },
-
-    // Make a list of connected upstream types
-    getUpstreamTypes: function (node) {
-        return node.connections ? node.connections.map(function (c) {
-                return c.node.outputTypes[c.output];
-            }) : null;
     }
 };

@@ -1,5 +1,5 @@
 
-// glsl source generator function
+// glsl source generator helper functions
 class GlslGen {
     // generate a number
     static number(n) {
@@ -117,6 +117,7 @@ class GlslGen {
     }
 };
 
+// context holds globals which apply to all graph instances
 class GlslContext {
     constructor() {
         this.nextFuncId = 0;
@@ -134,6 +135,7 @@ class GlslContext {
     }
 }
 
+// passes the graph and generates glsl code
 class GlslEvalPass extends Visitor {
     constructor (graph, context) {
         super();
@@ -146,13 +148,10 @@ class GlslEvalPass extends Visitor {
     }
 
     visit(node) {
-        // skip nodes that have already been evaluated
-        if (this.outputs[node.id]) {
-            return;
-        }
+        var connections = node.connections;
 
         // collect the node's input connection results (and cast them to the expected type if neccessary)
-        var inputs = node.connections ? node.connections.map(function (c) {
+        var inputs = connections ? connections.map(function (c) {
             if (!c) {
                 return null;
             }

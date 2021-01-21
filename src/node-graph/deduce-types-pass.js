@@ -1,45 +1,38 @@
 
-class DeduceTypesPass extends TypedVisitor {
+// deduce the types flowing around the node graph.
+class DeduceTypesPass extends Visitor {
     constructor (graphSystem, inputTypes) {
         super();
         this.graphSystem = graphSystem;
         this.inputTypes = inputTypes;
     }
 
+    visit(node) {
+        var connections = node.connections;
+
+        // make a list of this node's upstream types
+        var inputTypes = connections ? connections.map(function (c) {
+            return c.node.outputTypes[c.output];
+        }) : null;
+
+        var func = DeduceTypesPass.functionTable[node.type.name];
+        func.call(this, node, inputTypes);
+    }
+
     // visitor functions per node type
     static functionTable = {
-        value: function (node) {
+        value: function (node, inputTypes) {
             node.outputTypes = [ node.data.value.type ];
         },
 
-        identifier: function (node) {
+        identifier: function (node, inputTypes) {
             node.outputTypes = [ Identifiers[node.data.name].type ];
         },
 
-        add: function (node) {
-            if (node.connections) {
-                // get the upstream types
-                var upstreamTypes = TypeSystem.getUpstreamTypes(node);
+        add: function (node, inputTypes) {
+            if (inputTypes) {
                 // calculate the containing type
-                var containerType = TypeSystem.determineContainingType(upstreamTypes);
-                if (containerType && containerType.dataType === DataType.vec) {
-                    // use the container type for input and output types
-                    node.outputTypes = [ containerType ];
-                    node.connections.forEach(function (c) {
-                        c.type = containerType;
-                    });
-                } else {
-                    // input type error
-                }
-            }
-        },
-
-        mul: function (node) {
-            if (node.connections) {
-                // get the upstream types
-                var upstreamTypes = TypeSystem.getUpstreamTypes(node);
-                // calculate the containing type
-                var containerType = TypeSystem.determineContainingType(upstreamTypes);
+                var containerType = TypeSystem.determineContainingType(inputTypes);
                 if (containerType && containerType.dataType === DataType.vec) {
                     // use the container type for input and output types
                     node.outputTypes = [ containerType ];
@@ -52,14 +45,27 @@ class DeduceTypesPass extends TypedVisitor {
             }
         },
 
-        graph: function (node) {
+        mul: function (node, inputTypes) {
+            if (inputTypes) {
+                // calculate the containing type
+                var containerType = TypeSystem.determineContainingType(inputTypes);
+                if (containerType && containerType.dataType === DataType.vec) {
+                    // use the container type for input and output types
+                    node.outputTypes = [ containerType ];
+                    node.connections.forEach(function (c) {
+                        c.type = containerType;
+                    });
+                } else {
+                    // type error
+                }
+            }
+        },
+
+        graph: function (node, inputTypes) {
             var data = node.data;
 
-            // get upstream connected types
-            var upstreamTypes = TypeSystem.getUpstreamTypes(node);
-
             // instantiate the graph based on upstream types
-            var graph = this.graphSystem.instantiateGraph(data.graphId, upstreamTypes);
+            var graph = this.graphSystem.instantiateGraph(data.graphId, inputTypes);
 
             // populate types from the graph instance types
             var graphInputNode = graph.nodesByType['input'];
@@ -83,7 +89,7 @@ class DeduceTypesPass extends TypedVisitor {
             data.graph = graph;
         },
 
-        input: function (node) {
+        input: function (node, inputTypes) {
             var graphInputTypes = this.inputTypes;
             if (graphInputTypes) {
                 // the graph was given input connection types, use those
@@ -91,16 +97,14 @@ class DeduceTypesPass extends TypedVisitor {
             }
         },
 
-        output: function (node) {
+        output: function (node, inputTypes) {
             // output types mirror input types
-            node.connections.forEach(function (c) {
+            node.connections.forEach(function (c, i) {
                 if (c) {
-                    c.type = c.node.outputTypes[c.output];
+                    c.type = inputTypes[i];
                 }
             });
-            node.outputTypes = node.connections.map(function (c) {
-                return c ? c.type : null;
-            });
+            node.outputTypes = inputTypes;
         }
     }
 }

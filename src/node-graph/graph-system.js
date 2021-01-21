@@ -1,18 +1,18 @@
 
 // graph registry
-var GraphSystem = function () {
-    // map of id:JSON
-    this.graphData = { };
-    // map of graph mangled name -> graph instance
-    this.graphInstances = { };
-};
+class GraphSystem {
+    constructor() {
+        // map of id:JSON
+        this.graphData = { };
+        // map of graph mangled name -> graph instance
+        this.graphInstances = { };
+    }
 
-Object.assign(GraphSystem.prototype, {
-    add: function (graphData) {
+    add(graphData) {
         this.graphData[graphData.id] = graphData;
-    },
+    }
 
-    instantiateGraph: function (id, inputTypes) {
+    instantiateGraph(id, inputTypes) {
         // generate mangled name based on graph id and its input types
         var mangledName = this.generateMangledName(id, inputTypes);
 
@@ -26,7 +26,7 @@ Object.assign(GraphSystem.prototype, {
                 return null;
             }
 
-            var graph = new Graph(graphData, this, inputTypes);
+            var graph = new Graph(graphData, this);
 
             // deduce and propagate node types through the graph instance
             // graph.deduceNodeTypes();
@@ -43,12 +43,12 @@ Object.assign(GraphSystem.prototype, {
         }
 
         return graph;
-    },
+    }
 
     // generate a unique name for a graph with given id and set of input types
-    generateMangledName: function (id, inputTypes) {
+    generateMangledName(id, inputTypes) {
         return "" + id + "(" + (inputTypes || []).map(function (t) {
             return t.name;
         }).join(',') + ")";
     }
-});
+}

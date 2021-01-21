@@ -8,8 +8,10 @@ class MemEvalPass extends Visitor {
     }
 
     visit(node) {
+        var connections = node.connections;
+
         // prepare inputs to this node in the correct types
-        var inputs = node.connections ? node.connections.map(function (c) {
+        var inputs = connections ? connections.map(function (c) {
             if (!c) {
                 return null;
             }
