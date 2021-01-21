@@ -3,7 +3,7 @@ class MemEvalPass extends Visitor {
     constructor (inputs) {
         super();
         this.inputs = inputs;
-        this.symbolTable = new Map();
+        this.outputs = [ ];             // output values per-node
         this.result = null;             // output nodes will store resulting value here
     }
 
@@ -16,13 +16,13 @@ class MemEvalPass extends Visitor {
                 return null;
             }
             var v = new Value(c.type);
-            v.castFrom(this.symbolTable.get(c.node)[c.output]);
+            v.castFrom(this.outputs[c.node.id][c.output]);
             return v;
         }, this) : null;
 
         var handler = MemEvalPass.functionTable[node.type.name];
         var outputs = handler ? handler.call(this, node, inputs) : null;
-        this.symbolTable.set(node, outputs);
+        this.outputs[node.id] = outputs;
 
         console.log(node.type.name + '=' + (outputs ? outputs.map(function (o) {
             return JSON.stringify(o.data);

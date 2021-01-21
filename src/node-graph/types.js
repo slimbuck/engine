@@ -7,11 +7,13 @@ var DataType = {
 };
 
 // a type consists of a data type and dimension
-var Type = function (name, dataType, dimension) {
-    this.name = name;
-    this.dataType = dataType;
-    this.dimension = (dataType == DataType.texture) ? 0 : dimension;
-};
+class Type {
+    constructor(name, dataType, dimension) {
+        this.name = name;
+        this.dataType = dataType;
+        this.dimension = (dataType == DataType.texture) ? 0 : dimension;
+    }
+}
 
 // enumerate supported types
 var Types = {

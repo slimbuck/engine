@@ -142,7 +142,7 @@ class GlslEvalPass extends Visitor {
         this.graph = graph;
         this.context = context;
         this.nextId = 0;
-        this.outputs = [];                          // per-node output identifiers
+        this.outputs = [];                          // output identifiers per-node
         this.body = [];                             // function body glsl
         this.inputs = null;
     }

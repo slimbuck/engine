@@ -1,18 +1,18 @@
 
 // graph
-var Graph = function (graphData, system) {
-    this.id = null;
-    this.nodes = [ ];
-    this.nodesByType = { };
-    this.system = system || null;
+class Graph {
+    constructor(graphData, system) {
+        this.id = null;
+        this.nodes = [ ];
+        this.nodesByType = { };
+        this.system = system || null;
 
-    if (graphData) {
-        this.load(graphData);
+        if (graphData) {
+            this.load(graphData);
+        }
     }
-};
 
-Object.assign(Graph.prototype, {
-    createNode: function (typeString, data) {
+    createNode(typeString, data) {
         // get the node type object
         var type = NodeTypes[typeString];
         if (!type) {
@@ -39,9 +39,9 @@ Object.assign(Graph.prototype, {
 
         // and return
         return node;
-    },
+    }
 
-    createConnection: function (node, input, srcNode, srcOutput) {
+    createConnection(node, input, srcNode, srcOutput) {
         // get the node
         var n = this.nodes[node];
         if (!n) {
@@ -67,10 +67,10 @@ Object.assign(Graph.prototype, {
 
         // and return
         return connection;
-    },
+    }
 
     // load graph data
-    load: function (graphData) {
+    load(graphData) {
         var i, j;
         var nodes = graphData.nodes;
         var connections = graphData.connections;
@@ -92,14 +92,14 @@ Object.assign(Graph.prototype, {
                 this.createConnection(c.node, j, input.node, input.output);
             }
         }
-    },
+    }
 
     // walk the graph in execution order starting at node. update
     // seen structure with nodes we've already seen and skip those present.
     // node - the starting node to walk
     // callback - function takes a single parameter, the node
     // seen - a Set() storing the nodes already seen
-    walk: function (node, callback, seen) {
+    walk(node, callback, seen) {
         function recurse(node) {
             if (seen.has(node)) {
                 return;
@@ -122,22 +122,22 @@ Object.assign(Graph.prototype, {
         }
 
         recurse.call(this, node);
-    },
+    }
 
     // Perform a depth first walk of the graph starting at the 
     // output nodes of the graph
-    walkOutputs: function (callback) {
+    walkOutputs(callback) {
         var rootNode = this.nodesByType[NodeTypes.output.name];
         if (rootNode) {
             var seen = new Set();
             this.walk(rootNode[0], callback, seen);
         }
-    },
+    }
 
     // visit the tree with the provided visitor
-    visit: function (visitor) {
+    visit(visitor) {
         this.walkOutputs(function (node) {
             visitor.visit.call(visitor, node);
         });
     }
-});
+}

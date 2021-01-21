@@ -1,73 +1,33 @@
 
-// value storage
-var AllocValueStorage = function (type) {
-    switch (type.dataType) {
-        case DataType.vec:
-            switch (type.dimension) {
-                case 1: return [0];
-                case 2: return [0, 0];
-                case 3: return [0, 0, 0];
-                case 4: return [0, 0, 0, 0];
-            }
-            break;
-        case DataType.mat:
-            switch (type.dimension) {
-                case 2: return [1, 0, 0, 1];
-                case 3: return [1, 0, 0, 0, 1, 0, 0, 0, 1];
-                case 4: return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-            }
-            break;
-    }
-    return null;
-};
-
 // value contains a type and data
-var Value = function (type, data) {
-    this.type = type;
-    this.data = AllocValueStorage(type);
-    if (data) {
-        this.setFromData(data);
+class Value {
+    constructor(type, data) {
+        this.type = type;
+        this.data = Value.AllocValueStorage(type);
+        if (data) {
+            this.setFromData(data);
+        }
     }
-};
 
-Object.assign(Value.prototype, {
     // set the value data
-    setFromData: function (data) {
+    setFromData(data) {
         var len = Math.min(this.data.length, data.length);
         for (var i=0; i<len; ++i) {
             this.data[i] = data[i];
         }
-    },
+    }
 
-    // copy data assuming value type matches this exactly
-    _doCopyFrom: function (value) {
-        switch (this.type.dataType) {
-            case DataType.vec:
-            case DataType.mat:
-                var src = value.data;
-                var dst = this.data;
-                var len = dst.length;
-                for (var i=0; i<len; ++i) {
-                    dst[i] = src[i];
-                }
-                break;
-            case DataType.texture:
-                this.data = value.data;
-                break;
-        }
-    },
-
-    copyFrom: function (value) {
+    copyFrom(value) {
         // types must match
         if (value.type !== this.type) {
             return false;
         }
         this._doCopyFrom(value);
         return true;
-    },
+    }
 
     // copy the value and perform automatic cast, if necessary and appropriate
-    castFrom: function (value) {
+    castFrom(value) {
         var srcType = value.type;
         var dstType = this.type;
 
@@ -113,4 +73,44 @@ Object.assign(Value.prototype, {
             return false;
         }
     }
-});
+
+
+    // copy data assuming value type matches this exactly
+    _doCopyFrom(value) {
+        switch (this.type.dataType) {
+            case DataType.vec:
+            case DataType.mat:
+                var src = value.data;
+                var dst = this.data;
+                var len = dst.length;
+                for (var i=0; i<len; ++i) {
+                    dst[i] = src[i];
+                }
+                break;
+            case DataType.texture:
+                this.data = value.data;
+                break;
+        }
+    }
+
+    static AllocValueStorage (type) {
+        switch (type.dataType) {
+            case DataType.vec:
+                switch (type.dimension) {
+                    case 1: return [0];
+                    case 2: return [0, 0];
+                    case 3: return [0, 0, 0];
+                    case 4: return [0, 0, 0, 0];
+                }
+                break;
+            case DataType.mat:
+                switch (type.dimension) {
+                    case 2: return [1, 0, 0, 1];
+                    case 3: return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+                    case 4: return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+                }
+                break;
+        }
+        return null;
+    }
+}
