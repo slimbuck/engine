@@ -29,13 +29,14 @@ Object.assign(GraphSystem.prototype, {
             var graph = new Graph(graphData, this, inputTypes);
 
             // deduce and propagate node types through the graph instance
-            graph.deduceNodeTypes();
+            // graph.deduceNodeTypes();
+            graph.visit(new DeduceTypesPass(this, inputTypes));
 
             // validate that all types check out
-            graph.performTypeChecking();
+            graph.visit(new TypeCheckingPass());
 
             // print result
-            graph.debugPrint();
+            graph.visit(new DebugPrintPass(graph));
 
             // store graph
             this.graphInstances[mangledName] = graph;

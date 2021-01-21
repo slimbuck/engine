@@ -25,7 +25,7 @@ Object.assign(Graph.prototype, {
         var nodeData = type.createData ? type.createData(data) : data;
 
         // construct the node instance
-        var node = new Node(type, nodeData);
+        var node = new Node(type, nodeData, this.nodes.length);
 
         // store the node by id
         this.nodes.push(node);
@@ -135,83 +135,10 @@ Object.assign(Graph.prototype, {
         }
     },
 
-    // Propagate input and output types around the graph. At load time
-    // generally only the core value nodes and identifiers have types.
-    deduceNodeTypes: function () {
+    // visit the tree with the provided visitor
+    visit: function (visitor) {
         this.walkOutputs(function (node) {
-            node.type.deduceTypes.call(this, node);
-        });
-    },
-
-    // Walk the graph checking that automatic conversions (i.e. check
-    // that automatic conversions between upstream types and input types
-    // are valid).
-    // At this point it is assumed types have been propagated throughout
-    // the graph.
-    performTypeChecking: function () {
-        this.walkOutputs(function (node) {
-            // run through node connections checking upstream vs input type
-            if (node.connections) {
-                for (var i=0; i<node.connections.length; ++i) {
-                    var c = node.connections[i];
-
-                    var srcType = c.node.outputTypes[c.output];
-                    if (!srcType) {
-                        console.log('node is missing output type' +
-                                    ' graph=' + this.id +
-                                    ' node=' + this.nodes.indexOf(c.node) +
-                                    ' output=' + c.output);
-                    } else {
-                        var dstType = c.type;
-                        if (!dstType) {
-                            console.log('node is missing input type' +
-                                        ' graph=' + this.id +
-                                        ' node=' + this.nodes.indexOf(node) +
-                                        ' input=' + i);
-                        } else {
-                            if (!TypeSystem.isValidTypeConversion(dstType, srcType)) {
-                                console.log('invalid type conversion' +
-                                            ' graph=' + this.id +
-                                            ' node=' + this.nodes.indexOf(node) +
-                                            ' dst=' + dstType.name +
-                                            ' src=' + srcType.name);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    },
-
-    // Print the graph structure to the console
-    debugPrint: function () {
-        console.log("graph id=" + this.id);
-        this.walkOutputs(function (node) {
-            // node basics
-            console.log("    node " + this.nodes.indexOf(node) + " " + node.type.name);
-            // node data
-            if (node.data) {
-                if (node.type === NodeTypes.graph) {
-                    console.log("        data={graphId=" + node.data.graphId + "}");
-                } else {
-                    console.log("        data=" + JSON.stringify(node.data));
-                }
-            }
-            // node connections
-            if (node.connections) {
-                var i;
-                for (i=0; i<node.connections.length; ++i) {
-                    var c = node.connections[i];
-                    console.log("        connection" +
-                                " node=" + this.nodes.indexOf(c.node) +
-                                " output=" + c.output +
-                                " type=" + (c.type ? c.type.name : "null"));
-                }
-            }
-            // output types
-            console.log("        outputTypes=" + (node.outputTypes ? JSON.stringify(node.outputTypes.map(function (t) {
-                return t.name;
-            })) : null));
+            visitor.visit.call(visitor, node);
         });
     }
 });

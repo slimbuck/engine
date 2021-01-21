@@ -1,11 +1,14 @@
 
 // node
-var Node = function (type, data) {
-    // node type (NodeTypes.value, NodeTypes.add, NodeTypes.graph)
+var Node = function (type, data, id) {
+    // node type object, one of see NodeTypes.***
     this.type = type;
 
     // node data struct
     this.data = data;
+
+    // graph-wide node id (index)
+    this.id = id;
 
     // array of input connections - not always required so
     // container array will be allocated on demand.

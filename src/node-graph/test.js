@@ -44,6 +44,8 @@ graphSystem.add(testGraphData);
 var g = graphSystem.instantiateGraph(1);
 
 // evaluate glsl
-console.log("glsl:\n" + GlslEval(g));
+var c = new GlslContext();
+g.visit(new GlslEvalPass(g, c));
 
-MemEval(g);
+// memory eval
+g.visit(new MemEvalPass([]));
