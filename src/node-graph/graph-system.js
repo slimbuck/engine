@@ -29,7 +29,6 @@ class GraphSystem {
             var graph = new Graph(graphData, this);
 
             // deduce and propagate node types through the graph instance
-            // graph.deduceNodeTypes();
             graph.visit(new DeduceTypesPass(this, inputTypes));
 
             // validate that all types check out

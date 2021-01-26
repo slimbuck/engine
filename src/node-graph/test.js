@@ -25,6 +25,7 @@ var testGraphData = {
         { type: 'value', data: { name: 'a vec 4', static: true, type: 'vec4', data: [4, 5, 6, 7] } },
         { type: 'mul' },
         { type: 'graph', data: { graphId: 0 } },
+        // { type: 'identifier', data: { name: "my_texture_coords", static: true } },
         { type: 'output' }
     ],
     connections: [

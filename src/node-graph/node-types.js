@@ -1,78 +1,62 @@
 
 // implementations of the supported node types
 
-var ValueNode = {
-    name: 'value',
-
-    createData: function (data) {
-        return {
-            name: data.name,
-            static: !!data.static,
-            value: new Value(Types[data.type], data.data)
-        };
+class ValueNode extends Node {
+    constructor(id, json) {
+        super(id, {
+            name: json.name,
+            static: !!json.static,
+            value: new Value(Types[json.type], json.data)
+        });
     }
-};
+}
 
-var IdentifierNode = {
-    name: 'identifier',
-
-    createData: function (data) {
-        return {
-            name: data.name,
-            static: !!data.static
-        }
+class IdentifierNode extends Node {
+    constructor(id, json) {
+        super(id, {
+            name: json.name,
+            static: !!json.static
+        });
     }
-};
+}
 
-var AddNode = {
-    name: 'add',
-
-    createData: function (data) {
-        return null;
+class AddNode extends Node {
+    constructor(id, json) {
+        super(id, null);
     }
-};
+}
 
-var MulNode = {
-    name: 'mul',
-
-    createData: function (data) {
-        return null;
+class MulNode extends Node {
+    constructor(id, json) {
+        super(id, null);
     }
-};
+}
 
-var GraphNode = {
-    name: 'graph',
-
-    createData: function (data) {
-        return {
-            graphId: data.graphId,
+class GraphNode extends Node {
+    constructor (id, json) {
+        super(id, {
+            graphId: json.graphId,
             graph: null                 // graph instance
-        };
+        });
     }
-};
+}
 
-var InputNode = {
-    name: 'input',
-
-    createData: function (data) {
-        return null;
+class InputNode extends Node {
+    constructor(id, json) {
+        super(id, json);
     }
-};
+}
 
-var OutputNode = {
-    name: 'output',
-
-    createData: function (data) {
-        return null;
+class OutputNode extends Node {
+    constructor(id, json) {
+        super(id, null);
     }
-};
+}
 
-var NodeTypes = {
-    value: ValueNode,
-    identifier: IdentifierNode,
-    add: AddNode,
-    mul: MulNode,
-    graph: GraphNode,
-    input: InputNode,
-    output: OutputNode
-};
+RegisterNode('value', ValueNode);
+RegisterNode('identifier', IdentifierNode);
+RegisterNode('add', AddNode);
+RegisterNode('mul', MulNode);
+RegisterNode('graph', GraphNode);
+RegisterNode('input', InputNode);
+RegisterNode('output', OutputNode);

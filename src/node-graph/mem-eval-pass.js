@@ -20,11 +20,11 @@ class MemEvalPass extends Visitor {
             return v;
         }, this) : null;
 
-        var handler = MemEvalPass.functionTable[node.type.name];
+        var handler = MemEvalPass.functionTable[node.typeName];
         var outputs = handler ? handler.call(this, node, inputs) : null;
         this.outputs[node.id] = outputs;
 
-        console.log(node.type.name + '=' + (outputs ? outputs.map(function (o) {
+        console.log(node.typeName + '=' + (outputs ? outputs.map(function (o) {
             return JSON.stringify(o.data);
         }).join(",") : null));
 

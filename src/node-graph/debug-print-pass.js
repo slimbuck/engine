@@ -4,15 +4,16 @@ class DebugPrintPass extends Visitor {
         super();
         // store the graph so we can determine node indices etc
         this.graph = graph;
+        console.log("graph=" + graph.id + ":");
     }
 
     visit(node) {
         // node basics
-        console.log("    node " + this.graph.nodes.indexOf(node) + " " + node.type.name);
+        console.log("    node " + this.graph.nodes.indexOf(node) + " " + node.typeName);
 
         // node data
         if (node.data) {
-            if (node.type === NodeTypes.graph) {
+            if (node.constructor === GraphNode) {
                 console.log("        data={graphId=" + node.data.graphId + "}");
             } else {
                 console.log("        data=" + JSON.stringify(node.data));

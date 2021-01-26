@@ -12,29 +12,26 @@ class Graph {
         }
     }
 
-    createNode(typeString, data) {
+    createNode(typeName, data) {
         // get the node type object
-        var type = NodeTypes[typeString];
+        var type = NodeTypes[typeName];
         if (!type) {
             // invalid/unrecognized node type
             return null;
         }
 
-        // allow node types to process and validate construction data
-        var nodeData = type.createData ? type.createData(data) : data;
-
         // construct the node instance
-        var node = new Node(type, nodeData, this.nodes.length);
+        var node = new type(this.nodes.length, data);
 
         // store the node by id
         this.nodes.push(node);
 
         // store the node by type
-        var byType = this.nodesByType[type.name];
+        var byType = this.nodesByType[typeName];
         if (byType) {
             byType.push(node);
         } else {
-            this.nodesByType[type.name] = [node];
+            this.nodesByType[typeName] = [node];
         }
 
         // and return
@@ -127,7 +124,7 @@ class Graph {
     // Perform a depth first walk of the graph starting at the 
     // output nodes of the graph
     walkOutputs(callback) {
-        var rootNode = this.nodesByType[NodeTypes.output.name];
+        var rootNode = this.nodesByType[OutputNode.typeName];
         if (rootNode) {
             var seen = new Set();
             this.walk(rootNode[0], callback, seen);

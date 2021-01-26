@@ -15,7 +15,7 @@ class DeduceTypesPass extends Visitor {
             return c.node.outputTypes[c.output];
         }) : null;
 
-        var func = DeduceTypesPass.functionTable[node.type.name];
+        var func = DeduceTypesPass.functionTable[node.typeName];
         func.call(this, node, inputTypes);
     }
 

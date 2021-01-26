@@ -20,14 +20,6 @@ class GlslGen {
         }
     }
 
-    static identifierDecl(identifier) {
-        return GlslGen.typeDecl(identifier.type) + " " + identifier.name;
-    }
-
-    static valueDecl(value) {
-        return GlslGen.constDecl(value.type, value.data);
-    }
-
     // generate a constant declaration
     // eg: 'vec3(0.0, 1.0, 2.0)'
     static constDecl(type, data) {
@@ -50,6 +42,17 @@ class GlslGen {
         }
         result += ")";
         return result;
+    }
+
+    // generate an identifier declaration
+    // eg: 'vec3 myVec'
+    static identifierDecl(identifier) {
+        return GlslGen.typeDecl(identifier.type) + " " + identifier.name;
+    }
+
+    // declare a value, which is just a constant
+    static valueDecl(value) {
+        return GlslGen.constDecl(value.type, value.data);
     }
 
     // generate type cast given source and destination identifiers
@@ -173,7 +176,7 @@ class GlslEvalPass extends Visitor {
         }, this) : null;
 
         // invoke node handler which will return a fragment per output
-        var handler = GlslEvalPass.functionTable[node.type.name];
+        var handler = GlslEvalPass.functionTable[node.typeName];
         if (!handler) {
             // warning, error, fatal, cry
             return;
