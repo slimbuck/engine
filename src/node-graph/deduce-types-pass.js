@@ -26,7 +26,7 @@ class DeduceTypesPass extends Visitor {
         },
 
         identifier: function (node, inputTypes) {
-            node.outputTypes = [ Identifiers[node.data.name].type ];
+            node.outputTypes = [ node.data.symbol.type ];
         },
 
         add: function (node, inputTypes) {

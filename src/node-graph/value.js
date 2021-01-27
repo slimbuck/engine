@@ -74,7 +74,6 @@ class Value {
         }
     }
 
-
     // copy data assuming value type matches this exactly
     _doCopyFrom(value) {
         switch (this.type.dataType) {

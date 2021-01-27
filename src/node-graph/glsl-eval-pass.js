@@ -126,7 +126,8 @@ class GlslContext {
         this.nextFuncId = 0;
         this.graphNames = new Map();
         this.glsl = [];                             // resulting code
-        this.identifiers = { };                     // map of name->identifier
+        this.glslSymbols = [];                      // list of variables
+        this.symbolTable = { };                     // map of identifier->value
     }
 
     genIdentifier() {
@@ -199,7 +200,7 @@ class GlslEvalPass extends Visitor {
         value: function (node, inputs) {
             var value = node.data.value;
             var id = this.genIdentifier(value.type);
-            this.emit(GlslGen.identifierDecl(id) + " = " + GlslGen.valueDecl(value));
+            this.emit(GlslGen.identifierDecl(id) + " = " + GlslGen.valueDecl(value)) + ";";
             return [id];
         },
 

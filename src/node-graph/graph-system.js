@@ -1,15 +1,17 @@
 
 // graph registry
 class GraphSystem {
-    constructor() {
-        // map of id:JSON
-        this.graphData = { };
+    constructor(platformConstants) {
+        // store map of platform constants
+        this.platformConstants = platformConstants;
+        // stores a map of graphId->graphDef
+        this.graphDef = { };
         // map of graph mangled name -> graph instance
         this.graphInstances = { };
     }
 
-    add(graphData) {
-        this.graphData[graphData.id] = graphData;
+    add(graphDef) {
+        this.graphDef[graphDef.id] = graphDef;
     }
 
     instantiateGraph(id, inputTypes) {
@@ -20,13 +22,13 @@ class GraphSystem {
         var graph = this.graphInstances[mangledName];
         if (!graph) {
             // otherwise, generate graph instance
-            var graphData = this.graphData[id];
-            if (!graphData) {
+            var graphDef = this.graphDef[id];
+            if (!graphDef) {
                 // invalid graph id
                 return null;
             }
 
-            var graph = new Graph(graphData, this);
+            var graph = new Graph(graphDef, this);
 
             // deduce and propagate node types through the graph instance
             graph.visit(new DeduceTypesPass(this, inputTypes));

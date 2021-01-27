@@ -1,14 +1,14 @@
 
 // graph
 class Graph {
-    constructor(graphData, system) {
+    constructor(graphDef, system) {
         this.id = null;
         this.nodes = [ ];
         this.nodesByType = { };
-        this.system = system || null;
+        this.system = system;
 
-        if (graphData) {
-            this.load(graphData);
+        if (graphDef) {
+            this.load(graphDef);
         }
     }
 
@@ -21,7 +21,7 @@ class Graph {
         }
 
         // construct the node instance
-        var node = new type(this.nodes.length, data);
+        var node = new type(this.nodes.length, data, this);
 
         // store the node by id
         this.nodes.push(node);
@@ -67,13 +67,13 @@ class Graph {
     }
 
     // load graph data
-    load(graphData) {
+    load(graphDef) {
         var i, j;
-        var nodes = graphData.nodes;
-        var connections = graphData.connections;
+        var nodes = graphDef.nodes;
+        var connections = graphDef.connections;
 
         // id
-        this.id = graphData.id;
+        this.id = graphDef.id;
 
         // nodes
         for (i=0; i<nodes.length; ++i) {

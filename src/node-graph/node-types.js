@@ -2,20 +2,25 @@
 // implementations of the supported node types
 
 class ValueNode extends Node {
-    constructor(id, json) {
-        super(id, {
-            name: json.name,
-            static: !!json.static,
-            value: new Value(Types[json.type], json.data)
-        });
+    constructor(id, json, graph) {
+        var value;
+
+        if (json.name) {
+            // named constant
+            value = new Value(Types[json.type], graph.system.platformConstants[json.name]);
+        } else {
+            // inline constant
+            value = new Value(Types[json.type], json.data);
+        }
+
+        super(id, { value: value });
     }
 }
 
 class IdentifierNode extends Node {
     constructor(id, json) {
         super(id, {
-            name: json.name,
-            static: !!json.static
+            symbol: new Symbol(Types[json.type], json.name)
         });
     }
 }
