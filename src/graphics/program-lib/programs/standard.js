@@ -1251,29 +1251,36 @@ const standard = {
             }
         }
 
-        const reflectionDecode = options.rgbmReflection ? "decodeRGBM" : (options.hdrReflection ? "" : "gammaCorrectInput");
-
-        if (options.sphereMap) {
-            let scode = device.fragmentUniformsCount > 16 ? chunks.reflectionSpherePS : chunks.reflectionSphereLowPS;
-            scode = scode.replace(/\$texture2DSAMPLE/g, options.rgbmReflection ? "texture2DRGBM" : (options.hdrReflection ? "texture2D" : "texture2DSRGB"));
-            code += scode;
-        } else if (cubemapReflection) {
-            if (options.prefilteredCubemap) {
-                if (useTexCubeLod) {
-                    code += chunks.reflectionPrefilteredCubeLodPS.replace(/\$DECODE/g, reflectionDecode);
-
-                } else {
-                    code += chunks.reflectionPrefilteredCubePS.replace(/\$DECODE/g, reflectionDecode);
-                }
-            } else {
-                code += chunks.reflectionCubePS.replace(/\$textureCubeSAMPLE/g,
-                                                        options.rgbmReflection ? "textureCubeRGBM" : (options.hdrReflection ? "textureCube" : "textureCubeSRGB"));
-            }
-        } else if (options.dpAtlas) {
-            code += chunks.reflectionDpAtlasPS.replace(/\$texture2DSAMPLE/g, options.rgbmReflection ? "texture2DRGBM" : (options.hdrReflection ? "texture2D" : "texture2DSRGB"));
-        }
-
         if (cubemapReflection || options.sphereMap || options.dpAtlas) {
+
+            if (options.useMetalness) {
+                code += chunks.envBrdfApproxPS;
+            } else {
+                code += chunks.envBrdfNonePS;
+            }
+
+            var reflectionDecode = options.rgbmReflection ? "decodeRGBM" : (options.hdrReflection ? "" : "gammaCorrectInput");
+
+            if (options.sphereMap) {
+                var scode = device.fragmentUniformsCount > 16 ? chunks.reflectionSpherePS : chunks.reflectionSphereLowPS;
+                scode = scode.replace(/\$texture2DSAMPLE/g, options.rgbmReflection ? "texture2DRGBM" : (options.hdrReflection ? "texture2D" : "texture2DSRGB"));
+                code += scode;
+            } else if (cubemapReflection) {
+                if (options.prefilteredCubemap) {
+                    if (useTexCubeLod) {
+                        code += chunks.reflectionPrefilteredCubeLodPS.replace(/\$DECODE/g, reflectionDecode);
+
+                    } else {
+                        code += chunks.reflectionPrefilteredCubePS.replace(/\$DECODE/g, reflectionDecode);
+                    }
+                } else {
+                    code += chunks.reflectionCubePS.replace(/\$textureCubeSAMPLE/g,
+                                                            options.rgbmReflection ? "textureCubeRGBM" : (options.hdrReflection ? "textureCube" : "textureCubeSRGB"));
+                }
+            } else if (options.dpAtlas) {
+                code += chunks.reflectionDpAtlasPS.replace(/\$texture2DSAMPLE/g, options.rgbmReflection ? "texture2DRGBM" : (options.hdrReflection ? "texture2D" : "texture2DSRGB"));
+            }
+
             if (options.clearCoat > 0) {
                 code += chunks.reflectionCCPS;
             }
@@ -1531,7 +1538,7 @@ const standard = {
                 code += "   #endif\n";
             }
 
-            if (options.fresnelModel > 0) code += "   getFresnel();\n";
+            if (!options.useMetalness && options.fresnelModel > 0) code += "   getFresnel();\n";
         }
 
         if (addAmbient) {
@@ -1562,6 +1569,8 @@ const standard = {
                 }
                 code += "   addReflection();\n";
             }
+
+            if (options.useSpecular && options.useMetalness && options.fresnelModel > 0) code += "   getFresnel();\n";
 
             if (hasAreaLights) {
                 // specular has to be accumulated differently if we want area lights to look correct
