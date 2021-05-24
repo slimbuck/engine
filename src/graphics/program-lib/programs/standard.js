@@ -1341,15 +1341,16 @@ const standard = {
 
         if (lighting) {
             code += chunks.lightDiffuseLambertPS;
+
+            // used for energy conservation and to modulate specular with half-angle fresnel
+            code += "vec3 dLightFresnel;\n";
+            code += "vec3 ccLightFresnel;\n\n";
+
             if (hasAreaLights) code += chunks.ltc;
         }
         let useOldAmbient = false;
         if (options.useSpecular) {
             if (lighting) {
-                // used for energy conservation and to modulate specular with half-angle fresnel
-                code += "vec3 dLightFresnel;\n";
-                code += "vec3 ccLightFresnel;\n\n";
-
                 code += options.shadingModel === SPECULAR_PHONG ? chunks.lightSpecularPhongPS : (options.enableGGXSpecular) ? chunks.lightSpecularAnisoGGXPS : chunks.lightSpecularBlinnPS;
             }
             if (options.sphereMap || cubemapReflection || options.dpAtlas || (options.fresnelModel > 0)) {
