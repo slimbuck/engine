@@ -36,7 +36,6 @@
         var app = new pc.Application(canvas, {
             keyboard: new pc.Keyboard(window)
         });
-        app.start();
 
         // Set the canvas to fill the window and automatically change resolution to be the same as the canvas size
         app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
@@ -70,6 +69,7 @@
 
         // Load all assets and then run the example
         loadManifestAssets(app, assetManifest, function () {
+            app.start();
             run();
         });
 

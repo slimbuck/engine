@@ -30,7 +30,6 @@
 
         // Create the application and start the update loop
         var app = new pc.Application(canvas);
-        app.start();
 
         // Set the canvas to fill the window and automatically change resolution to be the same as the canvas size
         app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
@@ -105,6 +104,8 @@
             video.load();
             video.play();
             ready = true;
+
+            app.start();
         });
 
         var mouse = new pc.Mouse(document.body);

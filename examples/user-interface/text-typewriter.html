@@ -25,7 +25,6 @@
 
         // Create the application and start the update loop
         var app = new pc.Application(canvas);
-        app.start();
 
         // Set the canvas to fill the window and automatically change resolution to be the same as the canvas size
         app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
@@ -72,6 +71,8 @@
         // Load a font
         var fontAsset = new pc.Asset('courier.json', "font", { url: "../assets/fonts/courier.json" });
         fontAsset.on('load', function () {
+            app.start();
+
             // Apply the font to the text element
             text.element.fontAsset = fontAsset;
 
