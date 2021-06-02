@@ -125,11 +125,6 @@ vec2 getLTCLightUV(float tGlossiness, vec3 tNormalW)
 	return LTC_Uv( tNormalW, dViewDirW, roughness );
 }
 
-//used for energy conservation and to modulate specular
-vec3 dLTCSpecFres;
-#ifdef CLEARCOAT
-vec3 ccLTCSpecFres;
-#endif
 vec3 getLTCLightSpecFres(vec2 uv, vec3 tSpecularity)
 {
 	vec4 t2 = texture2D( areaLightsLutTex2, uv );
@@ -145,11 +140,11 @@ vec3 getLTCLightSpecFres(vec2 uv, vec3 tSpecularity)
 void calcLTCLightValues()
 {
 	dLTCUV = getLTCLightUV(dGlossiness, dNormalW);
-	dLTCSpecFres = getLTCLightSpecFres(dLTCUV, dSpecularityNoFres); 
+	dLightFresnel = getLTCLightSpecFres(dLTCUV, dSpecularity); 
 
 #ifdef CLEARCOAT
 	ccLTCUV = getLTCLightUV(ccGlossiness, ccNormalW);
-	ccLTCSpecFres = getLTCLightSpecFres(ccLTCUV, vec3(ccSpecularityNoFres));
+	ccLightFresnel = getLTCLightSpecFres(ccLTCUV, vec3(ccSpecularity));
 #endif
 }
 
@@ -412,13 +407,13 @@ float calcRectLightSpecular(vec3 tNormalW, vec2 uv) {
 	return LTC_EvaluateRect( tNormalW, dViewDirW, vPositionW, mInv, dLTCCoords );
 }
 
-float getRectLightSpecular() {
-    return calcRectLightSpecular(dNormalW, dLTCUV);
+vec3 getRectLightSpecular() {
+    return dLightFresnel * calcRectLightSpecular(dNormalW, dLTCUV);
 }
 
 #ifdef CLEARCOAT
-float getRectLightSpecularCC() {
-    return calcRectLightSpecular(ccNormalW, ccLTCUV);
+vec3 getRectLightSpecularCC() {
+    return ccLightFresnel * calcRectLightSpecular(ccNormalW, ccLTCUV);
 }
 #endif
 
@@ -427,22 +422,22 @@ float calcDiskLightSpecular(vec3 tNormalW, vec2 uv) {
 	return LTC_EvaluateDisk( tNormalW, dViewDirW, vPositionW, mInv, dLTCCoords );
 }
 
-float getDiskLightSpecular() {
-    return calcDiskLightSpecular(dNormalW, dLTCUV);
+vec3 getDiskLightSpecular() {
+    return dLightFresnel * calcDiskLightSpecular(dNormalW, dLTCUV);
 }
 
 #ifdef CLEARCOAT
-float getDiskLightSpecularCC() {
-    return calcDiskLightSpecular(ccNormalW, ccLTCUV);
+vec3 getDiskLightSpecularCC() {
+    return ccLightFresnel * calcDiskLightSpecular(ccNormalW, ccLTCUV);
 }
 #endif
 
-float getSphereLightSpecular() {
-    return calcDiskLightSpecular(dNormalW, dLTCUV);
+vec3 getSphereLightSpecular() {
+    return dLightFresnel * calcDiskLightSpecular(dNormalW, dLTCUV);
 }
 
 #ifdef CLEARCOAT
-float getSphereLightSpecularCC() {
-    return calcDiskLightSpecular(ccNormalW, ccLTCUV);
+vec3 getSphereLightSpecularCC() {
+    return ccLightFresnel * calcDiskLightSpecular(ccNormalW, ccLTCUV);
 }
 #endif

@@ -15,8 +15,7 @@ class SceneParser {
         let parent = null;
 
         const compressed = data.compressedFormat;
-        if (compressed && !data.entDecompressed) {
-            data.entDecompressed = true;
+        if (compressed) {
             data.entities = new Decompress(data.entities, compressed).run();
         }
 
@@ -44,6 +43,8 @@ class SceneParser {
         }
 
         this._openComponentData(parent, data.entities);
+
+        delete data.compressedFormat;
 
         return parent;
     }
