@@ -264,7 +264,7 @@ class AnimController {
 
         // If from and to are supplied, find transitions that include the required source and destination states
         if (from && to) {
-            transitions.concat(this._findTransitionsBetweenStates(from, to));
+            transitions = transitions.concat(this._findTransitionsBetweenStates(from, to));
         } else {
             // If no transition is active, look for transitions from the active & any states.
             if (!this._isTransitioning) {
@@ -533,7 +533,7 @@ class AnimController {
         if (this._isTransitioning) {
             this._currTransitionTime += dt;
             if (this._currTransitionTime <= this._totalTransitionTime) {
-                const interpolatedTime = this._totalTransitionTime === 0 ? this._currTransitionTime / this._totalTransitionTime : 1;
+                const interpolatedTime = this._totalTransitionTime !== 0 ? this._currTransitionTime / this._totalTransitionTime : 1;
                 // while transitioning, set all previous state animations to be weighted by (1.0 - interpolationTime).
                 for (let i = 0; i < this._transitionPreviousStates.length; i++) {
                     state = this._findState(this._transitionPreviousStates[i].name);
