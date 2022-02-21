@@ -14,6 +14,7 @@ import { RenderTarget } from './render-target.js';
 import { GraphicsDevice } from './graphics-device.js';
 import { Texture } from './texture.js';
 import { DebugGraphics } from './debug-graphics.js';
+import { SimpleCache, DeviceCache } from './device-cache.js';
 
 /** @typedef {import('../math/vec4.js').Vec4} Vec4 */
 
@@ -318,51 +319,6 @@ const createSamplesTex = (device, name, samples) => {
         levels: [packedSamples.data]
     });
 };
-
-// simple cache storing key->value
-// missFunc is called if the key is not present
-class SimpleCache {
-    map = new Map();
-
-    get(key, missFunc) {
-        if (!this.map.has(key)) {
-            const result = missFunc();
-            this.map.set(key, result);
-            return result;
-        }
-        return this.map.get(key);
-    }
-
-    clear() {
-        this.map.clear();
-    }
-}
-
-// per-device cache
-class DeviceCache {
-    constructor() {
-        this.cache = new SimpleCache();
-    }
-
-    // get the cache entry for the given device and key
-    // if entry doesn't exist, missFunc will be invoked to create it
-    get(device, key, missFunc) {
-        return this.cache.get(device, () => {
-            const cache = new SimpleCache();
-            device.on('destroy', () => {
-                cache.map.forEach((value, key) => {
-                    value.destroy();
-                });
-                this.cache.map.delete(device);
-            });
-            return cache;
-        }).get(key, missFunc);
-    }
-
-    clear() {
-        this.cache.clear();
-    }
-}
 
 // cache of samples. we store these separately from textures since multiple devices can use the same
 // set of samples.
