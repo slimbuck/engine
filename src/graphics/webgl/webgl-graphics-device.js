@@ -780,6 +780,7 @@ class WebglGraphicsDevice extends GraphicsDevice {
             // EXT_disjoint_timer_query_webgl2
             this.extDisjointTimerQuery = getExtension('EXT_disjoint_timer_query_webgl2', 'EXT_disjoint_timer_query');
             this.extDepthTexture = true;
+            this.extSrgb = true;
         } else {
             this.extBlendMinmax = getExtension("EXT_blend_minmax");
             this.extDrawBuffers = getExtension('EXT_draw_buffers');
@@ -809,6 +810,7 @@ class WebglGraphicsDevice extends GraphicsDevice {
             this.extColorBufferFloat = null;
             this.extDisjointTimerQuery = null;
             this.extDepthTexture = gl.getExtension('WEBGL_depth_texture');
+            this.extSrgb = gl.getExtension('EXT_sRGB');
         }
 
         this.extDebugRendererInfo = getExtension('WEBGL_debug_renderer_info');

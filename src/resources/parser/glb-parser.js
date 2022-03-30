@@ -21,7 +21,8 @@ import {
     PRIMITIVE_LINELOOP, PRIMITIVE_LINESTRIP, PRIMITIVE_LINES, PRIMITIVE_POINTS, PRIMITIVE_TRIANGLES, PRIMITIVE_TRIFAN, PRIMITIVE_TRISTRIP,
     SEMANTIC_POSITION, SEMANTIC_NORMAL, SEMANTIC_TANGENT, SEMANTIC_COLOR, SEMANTIC_BLENDINDICES, SEMANTIC_BLENDWEIGHT,
     SEMANTIC_TEXCOORD0, SEMANTIC_TEXCOORD1, SEMANTIC_TEXCOORD2, SEMANTIC_TEXCOORD3, SEMANTIC_TEXCOORD4, SEMANTIC_TEXCOORD5, SEMANTIC_TEXCOORD6, SEMANTIC_TEXCOORD7,
-    TYPE_INT8, TYPE_UINT8, TYPE_INT16, TYPE_UINT16, TYPE_INT32, TYPE_UINT32, TYPE_FLOAT32
+    TYPE_INT8, TYPE_UINT8, TYPE_INT16, TYPE_UINT16, TYPE_INT32, TYPE_UINT32, TYPE_FLOAT32,
+    PIXELFORMAT_SRGBA
 } from '../../graphics/constants.js';
 import { IndexBuffer } from '../../graphics/index-buffer.js';
 import { Texture } from '../../graphics/texture.js';
@@ -969,6 +970,33 @@ const createMaterial = function (gltfMaterial, textures) {
         "}"
     ].join('\n');
 
+    const diffuseChunk = [
+        "#ifdef MAPCOLOR",
+        "uniform vec3 material_diffuse;",
+        "#endif",
+        "",
+        "#ifdef MAPTEXTURE",
+        "uniform sampler2D texture_diffuseMap;",
+        "#endif",
+        "",
+        "void getAlbedo() {",
+        "    dAlbedo = vec3(1.0);",
+        "",
+        "    #ifdef MAPCOLOR",
+        "    dAlbedo *= material_diffuse.rgb;",
+        "    #endif",
+        "",
+        "    #ifdef MAPTEXTURE",
+        "    dAlbedo *= addAlbedoDetail(texture2D(texture_diffuseMap, $UV, textureBias).$CH);",
+        "    #endif",
+        "",
+        "    #ifdef MAPVERTEX",
+        "    dAlbedo *= gammaCorrectInput(saturate(vVertexColor.$VC));",
+        "    #endif",
+        "}"
+    ].join('\n');
+
+
     const zeros = [0, 0];
     const ones = [1, 1];
 
@@ -1031,11 +1059,13 @@ const createMaterial = function (gltfMaterial, textures) {
         if (specData.hasOwnProperty('diffuseTexture')) {
             const diffuseTexture = specData.diffuseTexture;
             texture = textures[diffuseTexture.index];
+            texture._format = PIXELFORMAT_SRGBA;
 
             material.diffuseMap = texture;
             material.diffuseMapChannel = 'rgb';
             material.opacityMap = texture;
             material.opacityMapChannel = 'a';
+            material.chunks.diffusePS = diffuseChunk;
 
             extractTextureTransform(diffuseTexture, material, ['diffuse', 'opacity']);
         }
@@ -1078,11 +1108,13 @@ const createMaterial = function (gltfMaterial, textures) {
         if (pbrData.hasOwnProperty('baseColorTexture')) {
             const baseColorTexture = pbrData.baseColorTexture;
             texture = textures[baseColorTexture.index];
+            texture._format = PIXELFORMAT_SRGBA;
 
             material.diffuseMap = texture;
             material.diffuseMapChannel = 'rgb';
             material.opacityMap = texture;
             material.opacityMapChannel = 'a';
+            material.chunks.diffusePS = diffuseChunk;
 
             extractTextureTransform(baseColorTexture, material, ['diffuse', 'opacity']);
         }

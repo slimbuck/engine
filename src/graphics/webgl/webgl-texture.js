@@ -271,14 +271,27 @@ class WebglTexture {
                 this._glPixelType = gl.UNSIGNED_INT_10F_11F_11F_REV;
                 break;
             case PIXELFORMAT_SRGB: // WebGL2 only
-                this._glFormat = gl.RGB;
-                this._glInternalFormat = gl.SRGB8;
-                this._glPixelType = gl.UNSIGNED_BYTE;
+                if (device.webgl2) {
+                    this._glFormat = gl.RGB;
+                    this._glInternalFormat = gl.SRGB8;
+                    this._glPixelType = gl.UNSIGNED_BYTE;
+                } else {
+                    // using EXT_sRGB extension
+                    this._glFormat = gl.RGB;
+                    this._glInternalFormat = gl.SRGB8_EXT;
+                    this._glPixelType = gl.UNSIGNED_BYTE;
+                }
                 break;
             case PIXELFORMAT_SRGBA: // WebGL2 only
-                this._glFormat = gl.RGBA;
-                this._glInternalFormat = gl.SRGB8_ALPHA8;
-                this._glPixelType = gl.UNSIGNED_BYTE;
+                if (device.webgl2) {
+                    this._glFormat = gl.RGBA;
+                    this._glInternalFormat = gl.SRGB8_ALPHA8;
+                    this._glPixelType = gl.UNSIGNED_BYTE;
+                } else {
+                    this._glFormat = gl.RGBA;
+                    this._glInternalFormat = gl.SRGB8_ALPHA8_EXT;
+                    this._glPixelType = gl.UNSIGNED_BYTE;
+                }
                 break;
         }
     }
