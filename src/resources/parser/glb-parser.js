@@ -86,7 +86,7 @@ const isDataURI = function (uri) {
 };
 
 const getDataURIMimeType = function (uri) {
-    return uri.substring(uri.indexOf(":") + 1, uri.indexOf(";"));
+    return uri.substring(uri.indexOf(':') + 1, uri.indexOf(';'));
 };
 
 const getNumComponents = function (accessorType) {
@@ -198,7 +198,7 @@ const getAccessorData = function (gltfAccessor, bufferViews, flatten = false) {
         // get indices data
         const indicesAccessor = {
             count: sparse.count,
-            type: "SCALAR"
+            type: 'SCALAR'
         };
         const indices = getAccessorData(Object.assign(indicesAccessor, sparse.indices), bufferViews, true);
 
@@ -519,7 +519,7 @@ const createVertexBuffer = function (device, attributes, indices, accessors, buf
             useAttributes[attrib] = attributes[attrib];
 
             // build unique id for each attribute in format: Semantic:accessorIndex
-            attribIds.push(attrib + ":" + attributes[attrib]);
+            attribIds.push(attrib + ':' + attributes[attrib]);
         }
     }
 
@@ -678,7 +678,7 @@ const createSkin = function (device, gltfSkin, accessors, bufferViews, nodes, gl
     }
 
     // create a cache key from bone names and see if we have matching skin
-    const key = boneNames.join("#");
+    const key = boneNames.join('#');
     let skin = glbSkins.get(key);
     if (!skin) {
 
@@ -737,7 +737,7 @@ const createMesh = function (device, gltfMesh, accessors, bufferViews, callback,
                         }
 
                         if (!status || !status.ok() || outputGeometry.ptr == 0) {
-                            callback("Failed to decode draco compressed asset: " +
+                            callback('Failed to decode draco compressed asset: ' +
                             (status ? status.error_msg() : ('Mesh asset - invalid draco compressed geometry type: ' + geometryType)));
                             return;
                         }
@@ -774,7 +774,7 @@ const createMesh = function (device, gltfMesh, accessors, bufferViews, callback,
                         canUseMorph = false;
                     }
                 } else {
-                    Debug.warn("File contains draco compressed data, but DracoDecoderModule is not configured.");
+                    Debug.warn('File contains draco compressed data, but DracoDecoderModule is not configured.');
                 }
             }
         }
@@ -811,7 +811,7 @@ const createMesh = function (device, gltfMesh, accessors, bufferViews, callback,
 
                     // #if _DEBUG
                     if (vertexBuffer.numVertices > 0xFFFF) {
-                        console.warn("Glb file contains 32bit index buffer but these are not supported by this device - it may be rendered incorrectly.");
+                        console.warn('Glb file contains 32bit index buffer but these are not supported by this device - it may be rendered incorrectly.');
                     }
                     // #endif
 
@@ -884,90 +884,90 @@ const createMesh = function (device, gltfMesh, accessors, bufferViews, callback,
 const createMaterial = function (gltfMaterial, textures) {
     // TODO: integrate these shader chunks into the native engine
     const glossChunk = [
-        "#ifdef MAPFLOAT",
-        "uniform float material_shininess;",
-        "#endif",
-        "",
-        "#ifdef MAPTEXTURE",
-        "uniform sampler2D texture_glossMap;",
-        "#endif",
-        "",
-        "void getGlossiness() {",
-        "    dGlossiness = 1.0;",
-        "",
-        "#ifdef MAPFLOAT",
-        "    dGlossiness *= material_shininess;",
-        "#endif",
-        "",
-        "#ifdef MAPTEXTURE",
-        "    dGlossiness *= texture2D(texture_glossMap, $UV, textureBias).$CH;",
-        "#endif",
-        "",
-        "#ifdef MAPVERTEX",
-        "    dGlossiness *= saturate(vVertexColor.$VC);",
-        "#endif",
-        "",
-        "    dGlossiness = 1.0 - dGlossiness;",
-        "",
-        "    dGlossiness += 0.0000001;",
-        "}"
+        '#ifdef MAPFLOAT',
+        'uniform float material_shininess;',
+        '#endif',
+        '',
+        '#ifdef MAPTEXTURE',
+        'uniform sampler2D texture_glossMap;',
+        '#endif',
+        '',
+        'void getGlossiness() {',
+        '    dGlossiness = 1.0;',
+        '',
+        '#ifdef MAPFLOAT',
+        '    dGlossiness *= material_shininess;',
+        '#endif',
+        '',
+        '#ifdef MAPTEXTURE',
+        '    dGlossiness *= texture2D(texture_glossMap, $UV, textureBias).$CH;',
+        '#endif',
+        '',
+        '#ifdef MAPVERTEX',
+        '    dGlossiness *= saturate(vVertexColor.$VC);',
+        '#endif',
+        '',
+        '    dGlossiness = 1.0 - dGlossiness;',
+        '',
+        '    dGlossiness += 0.0000001;',
+        '}'
     ].join('\n');
 
     const specularChunk = [
-        "#ifdef MAPCOLOR",
-        "uniform vec3 material_specular;",
-        "#endif",
-        "",
-        "#ifdef MAPTEXTURE",
-        "uniform sampler2D texture_specularMap;",
-        "#endif",
-        "",
-        "void getSpecularity() {",
-        "    dSpecularity = vec3(1.0);",
-        "",
-        "    #ifdef MAPCOLOR",
-        "        dSpecularity *= material_specular;",
-        "    #endif",
-        "",
-        "    #ifdef MAPTEXTURE",
-        "        vec3 srgb = texture2D(texture_specularMap, $UV, textureBias).$CH;",
-        "        dSpecularity *= vec3(pow(srgb.r, 2.2), pow(srgb.g, 2.2), pow(srgb.b, 2.2));",
-        "    #endif",
-        "",
-        "    #ifdef MAPVERTEX",
-        "        dSpecularity *= saturate(vVertexColor.$VC);",
-        "    #endif",
-        "}"
+        '#ifdef MAPCOLOR',
+        'uniform vec3 material_specular;',
+        '#endif',
+        '',
+        '#ifdef MAPTEXTURE',
+        'uniform sampler2D texture_specularMap;',
+        '#endif',
+        '',
+        'void getSpecularity() {',
+        '    dSpecularity = vec3(1.0);',
+        '',
+        '    #ifdef MAPCOLOR',
+        '        dSpecularity *= material_specular;',
+        '    #endif',
+        '',
+        '    #ifdef MAPTEXTURE',
+        '        vec3 srgb = texture2D(texture_specularMap, $UV, textureBias).$CH;',
+        '        dSpecularity *= vec3(pow(srgb.r, 2.2), pow(srgb.g, 2.2), pow(srgb.b, 2.2));',
+        '    #endif',
+        '',
+        '    #ifdef MAPVERTEX',
+        '        dSpecularity *= saturate(vVertexColor.$VC);',
+        '    #endif',
+        '}'
     ].join('\n');
 
     const clearCoatGlossChunk = [
-        "#ifdef MAPFLOAT",
-        "uniform float material_clearCoatGlossiness;",
-        "#endif",
-        "",
-        "#ifdef MAPTEXTURE",
-        "uniform sampler2D texture_clearCoatGlossMap;",
-        "#endif",
-        "",
-        "void getClearCoatGlossiness() {",
-        "    ccGlossiness = 1.0;",
-        "",
-        "#ifdef MAPFLOAT",
-        "    ccGlossiness *= material_clearCoatGlossiness;",
-        "#endif",
-        "",
-        "#ifdef MAPTEXTURE",
-        "    ccGlossiness *= texture2D(texture_clearCoatGlossMap, $UV, textureBias).$CH;",
-        "#endif",
-        "",
-        "#ifdef MAPVERTEX",
-        "    ccGlossiness *= saturate(vVertexColor.$VC);",
-        "#endif",
-        "",
-        "    ccGlossiness = 1.0 - ccGlossiness;",
-        "",
-        "    ccGlossiness += 0.0000001;",
-        "}"
+        '#ifdef MAPFLOAT',
+        'uniform float material_clearCoatGlossiness;',
+        '#endif',
+        '',
+        '#ifdef MAPTEXTURE',
+        'uniform sampler2D texture_clearCoatGlossMap;',
+        '#endif',
+        '',
+        'void getClearCoatGlossiness() {',
+        '    ccGlossiness = 1.0;',
+        '',
+        '#ifdef MAPFLOAT',
+        '    ccGlossiness *= material_clearCoatGlossiness;',
+        '#endif',
+        '',
+        '#ifdef MAPTEXTURE',
+        '    ccGlossiness *= texture2D(texture_clearCoatGlossMap, $UV, textureBias).$CH;',
+        '#endif',
+        '',
+        '#ifdef MAPVERTEX',
+        '    ccGlossiness *= saturate(vVertexColor.$VC);',
+        '#endif',
+        '',
+        '    ccGlossiness = 1.0 - ccGlossiness;',
+        '',
+        '    ccGlossiness += 0.0000001;',
+        '}'
     ].join('\n');
 
     const diffuseChunk = [
@@ -1285,9 +1285,9 @@ const createAnimation = function (gltfAnimation, animationIndex, gltfAccessors, 
     };
 
     const interpMap = {
-        "STEP": INTERPOLATION_STEP,
-        "LINEAR": INTERPOLATION_LINEAR,
-        "CUBICSPLINE": INTERPOLATION_CUBIC
+        'STEP': INTERPOLATION_STEP,
+        'LINEAR': INTERPOLATION_LINEAR,
+        'CUBICSPLINE': INTERPOLATION_CUBIC
     };
 
     const inputMap = { };
@@ -1414,7 +1414,7 @@ const createAnimation = function (gltfAnimation, animationIndex, gltfAccessors, 
     }
 
     return new AnimTrack(
-        gltfAnimation.hasOwnProperty('name') ? gltfAnimation.name : ("animation_" + animationIndex),
+        gltfAnimation.hasOwnProperty('name') ? gltfAnimation.name : ('animation_' + animationIndex),
         duration,
         inputs,
         outputs,
@@ -1427,7 +1427,7 @@ const createNode = function (gltfNode, nodeIndex) {
     if (gltfNode.hasOwnProperty('name') && gltfNode.name.length > 0) {
         entity.name = gltfNode.name;
     } else {
-        entity.name = "node_" + nodeIndex;
+        entity.name = 'node_' + nodeIndex;
     }
 
     // Parse transformation properties
@@ -1462,7 +1462,7 @@ const createNode = function (gltfNode, nodeIndex) {
 // creates a camera component on the supplied node, and returns it
 const createCamera = function (gltfCamera, node) {
 
-    const projection = gltfCamera.type === "orthographic" ? PROJECTION_ORTHOGRAPHIC : PROJECTION_PERSPECTIVE;
+    const projection = gltfCamera.type === 'orthographic' ? PROJECTION_ORTHOGRAPHIC : PROJECTION_PERSPECTIVE;
     const gltfProperties = projection === PROJECTION_ORTHOGRAPHIC ? gltfCamera.orthographic : gltfCamera.perspective;
 
     const componentData = {
@@ -1491,7 +1491,7 @@ const createCamera = function (gltfCamera, node) {
     }
 
     const cameraEntity = new Entity(gltfCamera.name);
-    cameraEntity.addComponent("camera", componentData);
+    cameraEntity.addComponent('camera', componentData);
     return cameraEntity;
 };
 
@@ -1500,7 +1500,7 @@ const createLight = function (gltfLight, node) {
 
     const lightProps = {
         enabled: false,
-        type: gltfLight.type === "point" ? "omni" : gltfLight.type,
+        type: gltfLight.type === 'point' ? 'omni' : gltfLight.type,
         color: gltfLight.hasOwnProperty('color') ? new Color(gltfLight.color) : Color.WHITE,
 
         // when range is not defined, infinity should be used - but that is causing infinity in bounds calculations
@@ -1526,7 +1526,7 @@ const createLight = function (gltfLight, node) {
     lightEntity.rotateLocal(90, 0, 0);
 
     // add component
-    lightEntity.addComponent("light", lightProps);
+    lightEntity.addComponent('light', lightProps);
     return lightEntity;
 };
 
@@ -1776,7 +1776,7 @@ const createResources = function (device, gltf, bufferViews, textureAssets, opti
     // Instead of bloating the engine forevermore with code to handle this case,
     // we now issue a warning instead and prompt user to reconvert their FBX.
     if (gltf.asset && gltf.asset.generator === 'PlayCanvas') {
-        Debug.warn(`glTF model may have flipped UVs. Please reconvert.`);
+        Debug.warn('glTF model may have flipped UVs. Please reconvert.');
     }
 
     const nodes = createNodes(gltf, options);
@@ -1915,14 +1915,14 @@ const loadImageAsync = function (gltfImage, index, bufferViews, urlBase, registr
                 if (isDataURI(gltfImage.uri)) {
                     loadTexture(gltfImage.uri, null, getDataURIMimeType(gltfImage.uri), null);
                 } else {
-                    loadTexture(path.join(urlBase, gltfImage.uri), null, null, { crossOrigin: "anonymous" });
+                    loadTexture(path.join(urlBase, gltfImage.uri), null, null, { crossOrigin: 'anonymous' });
                 }
             } else if (gltfImage.hasOwnProperty('bufferView') && gltfImage.hasOwnProperty('mimeType')) {
                 // bufferview
                 loadTexture(null, bufferViews[gltfImage.bufferView], gltfImage.mimeType, null);
             } else {
                 // fail
-                callback("Invalid image found in gltf (neither uri or bufferView found). index=" + index);
+                callback('Invalid image found in gltf (neither uri or bufferView found). index=' + index);
             }
         }
     });
@@ -2089,7 +2089,7 @@ const parseGltf = function (gltfChunk, callback) {
             return new TextDecoder().decode(array);
         }
 
-        let str = "";
+        let str = '';
         for (let i = 0; i < array.length; i++) {
             str += String.fromCharCode(array[i]);
         }
@@ -2118,17 +2118,17 @@ const parseGlb = function (glbData, callback) {
     const length = data.getUint32(8, true);
 
     if (magic !== 0x46546C67) {
-        callback("Invalid magic number found in glb header. Expected 0x46546C67, found 0x" + magic.toString(16));
+        callback('Invalid magic number found in glb header. Expected 0x46546C67, found 0x' + magic.toString(16));
         return;
     }
 
     if (version !== 2) {
-        callback("Invalid version number found in glb header. Expected 2, found " + version);
+        callback('Invalid version number found in glb header. Expected 2, found ' + version);
         return;
     }
 
     if (length <= 0 || length > data.byteLength) {
-        callback("Invalid length found in glb header. Found " + length);
+        callback('Invalid length found in glb header. Found ' + length);
         return;
     }
 
@@ -2138,7 +2138,7 @@ const parseGlb = function (glbData, callback) {
     while (offset < length) {
         const chunkLength = data.getUint32(offset, true);
         if (offset + chunkLength + 8 > data.byteLength) {
-            throw new Error("Invalid chunk length found in glb. Found " + chunkLength);
+            throw new Error('Invalid chunk length found in glb. Found ' + chunkLength);
         }
         const chunkType = data.getUint32(offset + 4, true);
         const chunkData = new Uint8Array(data.buffer, data.byteOffset + offset + 8, chunkLength);
@@ -2147,17 +2147,17 @@ const parseGlb = function (glbData, callback) {
     }
 
     if (chunks.length !== 1 && chunks.length !== 2) {
-        callback("Invalid number of chunks found in glb file.");
+        callback('Invalid number of chunks found in glb file.');
         return;
     }
 
     if (chunks[0].type !== 0x4E4F534A) {
-        callback("Invalid chunk type found in glb file. Expected 0x4E4F534A, found 0x" + chunks[0].type.toString(16));
+        callback('Invalid chunk type found in glb file. Expected 0x4E4F534A, found 0x' + chunks[0].type.toString(16));
         return;
     }
 
     if (chunks.length > 1 && chunks[1].type !== 0x004E4942) {
-        callback("Invalid chunk type found in glb file. Expected 0x004E4942, found 0x" + chunks[1].type.toString(16));
+        callback('Invalid chunk type found in glb file. Expected 0x004E4942, found 0x' + chunks[1].type.toString(16));
         return;
     }
 
