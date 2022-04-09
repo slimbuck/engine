@@ -913,6 +913,32 @@ const createMaterial = function (gltfMaterial, textures) {
         '}'
     ].join('\n');
 
+    const diffuseChunk = [
+        "#ifdef MAPCOLOR",
+        "uniform vec3 material_diffuse;",
+        "#endif",
+        "",
+        "#ifdef MAPTEXTURE",
+        "uniform sampler2D texture_diffuseMap;",
+        "#endif",
+        "",
+        "void getAlbedo() {",
+        "    dAlbedo = vec3(1.0);",
+        "",
+        "    #ifdef MAPCOLOR",
+        "    dAlbedo *= material_diffuse.rgb;",
+        "    #endif",
+        "",
+        "    #ifdef MAPTEXTURE",
+        "    dAlbedo *= addAlbedoDetail(texture2D(texture_diffuseMap, $UV, textureBias).$CH);",
+        "    #endif",
+        "",
+        "    #ifdef MAPVERTEX",
+        "    dAlbedo *= gammaCorrectInput(saturate(vVertexColor.$VC));",
+        "    #endif",
+        "}"
+    ].join('\n');
+
     const specularChunk = [
         '#ifdef MAPCOLOR',
         'uniform vec3 material_specular;',
@@ -969,33 +995,6 @@ const createMaterial = function (gltfMaterial, textures) {
         '    ccGlossiness += 0.0000001;',
         '}'
     ].join('\n');
-
-    const diffuseChunk = [
-        "#ifdef MAPCOLOR",
-        "uniform vec3 material_diffuse;",
-        "#endif",
-        "",
-        "#ifdef MAPTEXTURE",
-        "uniform sampler2D texture_diffuseMap;",
-        "#endif",
-        "",
-        "void getAlbedo() {",
-        "    dAlbedo = vec3(1.0);",
-        "",
-        "    #ifdef MAPCOLOR",
-        "    dAlbedo *= material_diffuse.rgb;",
-        "    #endif",
-        "",
-        "    #ifdef MAPTEXTURE",
-        "    dAlbedo *= addAlbedoDetail(texture2D(texture_diffuseMap, $UV, textureBias).$CH);",
-        "    #endif",
-        "",
-        "    #ifdef MAPVERTEX",
-        "    dAlbedo *= gammaCorrectInput(saturate(vVertexColor.$VC));",
-        "    #endif",
-        "}"
-    ].join('\n');
-
 
     const zeros = [0, 0];
     const ones = [1, 1];
@@ -1084,15 +1083,16 @@ const createMaterial = function (gltfMaterial, textures) {
         }
         if (specData.hasOwnProperty('specularGlossinessTexture')) {
             const specularGlossinessTexture = specData.specularGlossinessTexture;
-            material.specularMap = material.glossMap = textures[specularGlossinessTexture.index];
+            texture = textures[specularGlossinessTexture.index];
+            texture._format = PIXELFORMAT_SRGBA;
+
+            material.specularMap = material.glossMap = texture;
             material.specularMapChannel = 'rgb';
             material.glossMapChannel = 'a';
+            // material.chunks.specularPS = specularChunk;
 
             extractTextureTransform(specularGlossinessTexture, material, ['gloss', 'metalness']);
         }
-
-        material.chunks.specularPS = specularChunk;
-
     } else if (gltfMaterial.hasOwnProperty('pbrMetallicRoughness')) {
         const pbrData = gltfMaterial.pbrMetallicRoughness;
 
@@ -1170,7 +1170,10 @@ const createMaterial = function (gltfMaterial, textures) {
     }
     if (gltfMaterial.hasOwnProperty('emissiveTexture')) {
         const emissiveTexture = gltfMaterial.emissiveTexture;
-        material.emissiveMap = textures[emissiveTexture.index];
+        texture = textures[emissiveTexture.index];
+        texture._format = PIXELFORMAT_SRGBA;
+
+        material.emissiveMap = texture;
 
         extractTextureTransform(emissiveTexture, material, ['emissive']);
     }
