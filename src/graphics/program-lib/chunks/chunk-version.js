@@ -64,16 +64,16 @@ const validateUserChunks = (userChunks) => {
         if (!shaderChunks.hasOwnProperty(chunkName)) {
             const removedVersion = removedChunks[chunkName];
             if (removedVersion) {
-                Debug.warn(`Shader chunk '${chunkName}' was removed in API ${removedVersion} and is no longer supported.`);
+                Debug.warnOnce(`Shader chunk '${chunkName}' was removed in API ${removedVersion} and is no longer supported.`);
             } else {
-                Debug.warn(`Shader chunk '${chunkName}' is not supported.`);
+                Debug.warnOnce(`Shader chunk '${chunkName}' is not supported.`);
             }
         } else {
             const engineAPIVersion = chunkVersions[chunkName];
             const chunkIsOutdated = engineAPIVersion && (!userAPIVersion || semverLess(userAPIVersion, engineAPIVersion));
 
             if (chunkIsOutdated) {
-                Debug.warn(`Shader chunk '${chunkName}' is API version ${engineAPIVersion}, but the supplied chunk is version ${userAPIVersion || '-'}. Please update to the latest API.`);
+                Debug.warnOnce(`Shader chunk '${chunkName}' is API version ${engineAPIVersion}, but the supplied chunk is version ${userAPIVersion || '-'}. Please update to the latest API.`);
             }
 
             result[chunkName] = userChunks[chunkName];
