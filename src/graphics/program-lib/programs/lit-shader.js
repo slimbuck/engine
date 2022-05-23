@@ -22,8 +22,7 @@ import {
 import { LightsBuffer } from '../../../scene/lighting/lights-buffer.js';
 
 import { begin, end, fogCode, gammaCode, precisionCode, skinCode, tonemapCode, versionCode } from './common.js';
-import { Debug } from '../../../core/debug.js';
-import { chunkIsOutdated } from '../chunks/chunk-version.js';
+import { validateUserChunks } from '../chunks/chunk-version.js';
 
 const builtinAttributes = {
     vertex_normal: SEMANTIC_NORMAL,
@@ -66,22 +65,19 @@ class LitShader {
         if (options.chunks) {
             this.chunks = {};
 
-            for (const chunkName in shaderChunks) {
-                if (shaderChunks.hasOwnProperty(chunkName)) {
-                    if (options.chunks[chunkName]) {
-                        // check chunk API version
-                        Debug.assert(!chunkIsOutdated(chunkName, options.chunks.APIVersion), `The API for chunk='${chunkName}' has changed, please update it.`);
+            const userChunks = validateUserChunks(options.chunks);
 
-                        const chunk = options.chunks[chunkName];
-                        for (const a in builtinAttributes) {
-                            if (builtinAttributes.hasOwnProperty(a) && chunk.indexOf(a) >= 0) {
-                                this.attributes[a] = builtinAttributes[a];
-                            }
+            for (const chunkName in shaderChunks) {
+                if (userChunks[chunkName]) {
+                    const chunk = userChunks[chunkName];
+                    for (const a in builtinAttributes) {
+                        if (builtinAttributes.hasOwnProperty(a) && chunk.indexOf(a) >= 0) {
+                            this.attributes[a] = builtinAttributes[a];
                         }
-                        this.chunks[chunkName] = chunk;
-                    } else {
-                        this.chunks[chunkName] = shaderChunks[chunkName];
                     }
+                    this.chunks[chunkName] = chunk;
+                } else {
+                    this.chunks[chunkName] = shaderChunks[chunkName];
                 }
             }
         } else {
