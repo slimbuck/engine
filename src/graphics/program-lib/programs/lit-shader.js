@@ -22,6 +22,8 @@ import {
 import { LightsBuffer } from '../../../scene/lighting/lights-buffer.js';
 
 import { begin, end, fogCode, gammaCode, precisionCode, skinCode, tonemapCode, versionCode } from './common.js';
+import { Debug } from 'src/index.js';
+import { chunkIsOutdated } from '../chunks/chunk-version.js';
 
 const builtinAttributes = {
     vertex_normal: SEMANTIC_NORMAL,
@@ -64,18 +66,21 @@ class LitShader {
         if (options.chunks) {
             this.chunks = {};
 
-            for (const p in shaderChunks) {
-                if (shaderChunks.hasOwnProperty(p)) {
-                    if (options.chunks[p]) {
-                        const chunk = options.chunks[p];
+            for (const chunkName in shaderChunks) {
+                if (shaderChunks.hasOwnProperty(chunkName)) {
+                    if (options.chunks[chunkName]) {
+                        // check chunk API version
+                        Debug.assert(!chunkIsOutdated(chunkName, options.chunks.APIVersion), `The API for chunk='${chunkName}' has changed, please update.`);
+
+                        const chunk = options.chunks[chunkName];
                         for (const a in builtinAttributes) {
                             if (builtinAttributes.hasOwnProperty(a) && chunk.indexOf(a) >= 0) {
                                 this.attributes[a] = builtinAttributes[a];
                             }
                         }
-                        this.chunks[p] = chunk;
+                        this.chunks[chunkName] = chunk;
                     } else {
-                        this.chunks[p] = shaderChunks[p];
+                        this.chunks[chunkName] = shaderChunks[chunkName];
                     }
                 }
             }
