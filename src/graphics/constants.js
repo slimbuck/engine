@@ -1160,3 +1160,10 @@ semanticToLocation[SEMANTIC_ATTR12] = 12;
 semanticToLocation[SEMANTIC_ATTR13] = 13;
 semanticToLocation[SEMANTIC_ATTR14] = 14;
 semanticToLocation[SEMANTIC_ATTR15] = 15;
+
+/**
+ * Chunk API versions
+ *
+ * @type {string}
+ */
+export const CHUNK_API_1_54 = '1.54';

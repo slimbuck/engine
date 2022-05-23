@@ -1,4 +1,4 @@
-const CHUNK_API_1_54 = '1.54';
+import { CHUNK_API_1_54 } from '../../constants.js';
 
 const engineChunkVersions = {
     // frontend
@@ -39,6 +39,5 @@ const chunkIsOutdated = (chunkName, APIVersion) => {
 };
 
 export {
-    chunkIsOutdated,
-    CHUNK_API_1_54
+    chunkIsOutdated
 };
