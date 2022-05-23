@@ -22,7 +22,7 @@ import {
 import { LightsBuffer } from '../../../scene/lighting/lights-buffer.js';
 
 import { begin, end, fogCode, gammaCode, precisionCode, skinCode, tonemapCode, versionCode } from './common.js';
-import { Debug } from 'src/index.js';
+import { Debug } from '../../../core/debug.js';
 import { chunkIsOutdated } from '../chunks/chunk-version.js';
 
 const builtinAttributes = {
@@ -70,7 +70,7 @@ class LitShader {
                 if (shaderChunks.hasOwnProperty(chunkName)) {
                     if (options.chunks[chunkName]) {
                         // check chunk API version
-                        Debug.assert(!chunkIsOutdated(chunkName, options.chunks.APIVersion), `The API for chunk='${chunkName}' has changed, please update.`);
+                        Debug.assert(!chunkIsOutdated(chunkName, options.chunks.APIVersion), `The API for chunk='${chunkName}' has changed, please update it.`);
 
                         const chunk = options.chunks[chunkName];
                         for (const a in builtinAttributes) {
