@@ -1,47 +1,47 @@
-import { CHUNK_API_1_51, CHUNK_API_1_54 } from '../../constants.js';
+import { CHUNKAPI_1_51, CHUNKAPI_1_54 } from '../../constants.js';
 import { Debug } from '../../../core/debug.js';
 import { shaderChunks } from './chunks.js';
 
 const chunkVersions = {
     // frontend
-    aoPS: CHUNK_API_1_51,
-    clearCoatNormalPS: CHUNK_API_1_54,
-    diffusePS: CHUNK_API_1_54,
-    diffuseDetailMapPS: CHUNK_API_1_54,
-    emissivePS: CHUNK_API_1_54,
-    lightmapDirPS: CHUNK_API_1_54,
-    lightmapSinglePS: CHUNK_API_1_54,
-    normalMapPS: CHUNK_API_1_54,
-    normalDetailMapPS: CHUNK_API_1_54,
+    aoPS: CHUNKAPI_1_51,
+    clearCoatNormalPS: CHUNKAPI_1_54,
+    diffusePS: CHUNKAPI_1_54,
+    diffuseDetailMapPS: CHUNKAPI_1_54,
+    emissivePS: CHUNKAPI_1_54,
+    lightmapDirPS: CHUNKAPI_1_54,
+    lightmapSinglePS: CHUNKAPI_1_54,
+    normalMapPS: CHUNKAPI_1_54,
+    normalDetailMapPS: CHUNKAPI_1_54,
 
     // backend
-    clusteredLightPS: CHUNK_API_1_54,
-    endPS: CHUNK_API_1_54,
-    lightmapAddPS: CHUNK_API_1_54,
-    lightmapDirAddPS: CHUNK_API_1_54,
-    lightSpecularAnisoGGXPS: CHUNK_API_1_54,
-    lightSpecularBlinnPS: CHUNK_API_1_54,
-    lightSpecularPhongPS: CHUNK_API_1_54,
-    normalVertexPS: CHUNK_API_1_54,
-    startPS: CHUNK_API_1_54,
+    clusteredLightPS: CHUNKAPI_1_54,
+    endPS: CHUNKAPI_1_54,
+    lightmapAddPS: CHUNKAPI_1_54,
+    lightmapDirAddPS: CHUNKAPI_1_54,
+    lightSpecularAnisoGGXPS: CHUNKAPI_1_54,
+    lightSpecularBlinnPS: CHUNKAPI_1_54,
+    lightSpecularPhongPS: CHUNKAPI_1_54,
+    normalVertexPS: CHUNKAPI_1_54,
+    startPS: CHUNKAPI_1_54,
 };
 
 // removed
 const removedChunks = {
-    ambientPrefilteredCubePS: CHUNK_API_1_51,
-    ambientPrefilteredCubeLodPS: CHUNK_API_1_51,
-    dpAtlasQuadPS: CHUNK_API_1_51,
-    genParaboloidPS: CHUNK_API_1_51,
-    prefilterCubemapPS: CHUNK_API_1_51,
-    reflectionDpAtlasPS: CHUNK_API_1_51,
-    reflectionPrefilteredCubePS: CHUNK_API_1_51,
-    reflectionPrefilteredCubeLodPS: CHUNK_API_1_51,
+    ambientPrefilteredCubePS: CHUNKAPI_1_51,
+    ambientPrefilteredCubeLodPS: CHUNKAPI_1_51,
+    dpAtlasQuadPS: CHUNKAPI_1_51,
+    genParaboloidPS: CHUNKAPI_1_51,
+    prefilterCubemapPS: CHUNKAPI_1_51,
+    reflectionDpAtlasPS: CHUNKAPI_1_51,
+    reflectionPrefilteredCubePS: CHUNKAPI_1_51,
+    reflectionPrefilteredCubeLodPS: CHUNKAPI_1_51,
 
-    lightmapSingleVertPS: CHUNK_API_1_54,
-    normalMapFastPS: CHUNK_API_1_54,
-    specularAaNonePS: CHUNK_API_1_54,
-    specularAaToksvigPS: CHUNK_API_1_54,
-    specularAaToksvigFastPS: CHUNK_API_1_54
+    lightmapSingleVertPS: CHUNKAPI_1_54,
+    normalMapFastPS: CHUNKAPI_1_54,
+    specularAaNonePS: CHUNKAPI_1_54,
+    specularAaToksvigPS: CHUNKAPI_1_54,
+    specularAaToksvigFastPS: CHUNKAPI_1_54
 };
 
 // compare two "major.minor" semantic version strings and return true if a is a smaller version than b.

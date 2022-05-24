@@ -22,7 +22,7 @@ import {
 import { LightsBuffer } from '../../../scene/lighting/lights-buffer.js';
 
 import { begin, end, fogCode, gammaCode, precisionCode, skinCode, tonemapCode, versionCode } from './common.js';
-import { validateUserChunks } from '../chunks/chunk-version.js';
+import { validateUserChunks } from '../chunks/chunk-validation.js';
 
 const builtinAttributes = {
     vertex_normal: SEMANTIC_NORMAL,
