@@ -372,6 +372,15 @@ class LitShader {
             codeBody += "   vVertexColor = vertex_color;\n";
         }
 
+        if (options.msdf && options.msdfTextAttribute) {
+            this.attributes.vertex_outlineParameters = SEMANTIC_ATTR8;
+            this.attributes.vertex_shadowParameters = SEMANTIC_ATTR9;
+
+            codeBody += "    unpackMsdfParams();\n";
+
+            code += chunks.msdfVS;
+        }
+
         // morphing
         if (options.useMorphPosition || options.useMorphNormal) {
 
@@ -1071,6 +1080,9 @@ class LitShader {
         // }
 
         if (options.msdf) {
+            if (!options.msdfTextAttribute) {
+                code += "\n#define UNIFORM_TEXT_PARAMETERS";
+            }
             code += chunks.msdfPS;
         }
 
