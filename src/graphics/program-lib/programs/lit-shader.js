@@ -13,13 +13,14 @@ import {
     LIGHTFALLOFF_LINEAR,
     LIGHTSHAPE_PUNCTUAL, LIGHTSHAPE_RECT, LIGHTSHAPE_DISK, LIGHTSHAPE_SPHERE,
     LIGHTTYPE_DIRECTIONAL, LIGHTTYPE_OMNI, LIGHTTYPE_SPOT,
-    SHADER_DEPTH, SHADER_FORWARDHDR, SHADER_PICK, SHADER_SHADOW,
-    SHADOW_PCF3, SHADOW_PCF5, SHADOW_VSM8, SHADOW_VSM16, SHADOW_VSM32, SHADOW_COUNT,
+    SHADER_DEPTH, SHADER_FORWARDHDR, SHADER_PICK,
+    SHADOW_PCF3, SHADOW_PCF5, SHADOW_VSM8, SHADOW_VSM16, SHADOW_VSM32,
     SPECOCC_AO,
     SPECULAR_PHONG,
     SPRITE_RENDERMODE_SLICED, SPRITE_RENDERMODE_TILED, shadowTypeToString
 } from '../../../scene/constants.js';
 import { LightsBuffer } from '../../../scene/lighting/lights-buffer.js';
+import { ShaderPass } from '../../../scene/shader-pass.js';
 
 import { begin, end, fogCode, gammaCode, precisionCode, skinCode, tonemapCode, versionCode } from './common.js';
 import { validateUserChunks } from '../chunks/chunk-validation.js';
@@ -103,7 +104,7 @@ class LitShader {
         this.lighting = (options.lights.length > 0) || !!options.dirLightMap || !!options.clusteredLightingEnabled;
         this.reflections = !!options.reflectionSource;
         if (!options.useSpecular) options.specularMap = options.glossMap = null;
-        this.shadowPass = options.pass >= SHADER_SHADOW && options.pass <= 17;
+        this.shadowPass = ShaderPass.isShadow(options.pass);
         this.needsNormal = this.lighting || this.reflections || options.ambientSH || options.heightMap || options.enableGGXSpecular ||
                             (options.clusteredLightingEnabled && !this.shadowPass) || options.clearCoatNormalMap;
 
@@ -126,7 +127,7 @@ class LitShader {
             return '#define PICK_PASS\n';
         } else if (pass === SHADER_DEPTH) {
             return '#define DEPTH_PASS\n';
-        } else if (pass >= SHADER_SHADOW && pass <= 17) {
+        } else if (ShaderPass.isShadow(pass)) {
             return '#define SHADOW_PASS\n';
         }
         return '';
@@ -146,29 +147,13 @@ class LitShader {
         return code;
     }
 
-    _correctChannel(p, chan, _matTex2D) {
-        if (_matTex2D[p] > 0) {
-            if (_matTex2D[p] < chan.length) {
-                return chan.substring(0, _matTex2D[p]);
-            } else if (_matTex2D[p] > chan.length) {
-                let str = chan;
-                const chr = str.charAt(str.length - 1);
-                const addLen = _matTex2D[p] - str.length;
-                for (let i = 0; i < addLen; i++) str += chr;
-                return str;
-            }
-            return chan;
-        }
-    }
-
     _setMapTransform(codes, name, id, uv) {
-        const varName = `texture_${name}MapTransform`;
         const checkId = id + uv * 100;
-
-        // upload a 3x2 matrix and manually perform the multiplication
-        codes[0] += `uniform vec3 ${varName}0;\n`;
-        codes[0] += `uniform vec3 ${varName}1;\n`;
         if (!codes[3][checkId]) {
+            // upload a 3x2 matrix and manually perform the multiplication
+            const varName = `texture_${name}MapTransform`;
+            codes[0] += `uniform vec3 ${varName}0;\n`;
+            codes[0] += `uniform vec3 ${varName}1;\n`;
             codes[1] += `varying vec2 vUV${uv}_${id};\n`;
             codes[2] += `   vUV${uv}_${id} = vec2(dot(vec3(uv${uv}, 1), ${varName}0), dot(vec3(uv${uv}, 1), ${varName}1));\n`;
             codes[3][checkId] = true;
@@ -256,7 +241,7 @@ class LitShader {
         return decodeTable[textureFormat] || 'decodeGamma';
     }
 
-    generateVertexShader(_matTex2D) {
+    generateVertexShader(useUv, useUnmodifiedUv, mapTransforms) {
         const device = this.device;
         const options = this.options;
         const chunks = this.chunks;
@@ -312,32 +297,7 @@ class LitShader {
             }
         }
 
-        const useUv = [];
-        const useUnmodifiedUv = [];
         const maxUvSets = 2;
-
-        for (const p in _matTex2D) {
-            const mname = p + "Map";
-            if (options[p + "VertexColor"]) {
-                const cname = p + "VertexColorChannel";
-                options[cname] = this._correctChannel(p, options[cname], _matTex2D);
-            }
-            if (options[mname]) {
-                const cname = mname + "Channel";
-                const tname = mname + "Transform";
-                const uname = mname + "Uv";
-                options[uname] = Math.min(options[uname], maxUvSets - 1);
-                options[cname] = this._correctChannel(p, options[cname], _matTex2D);
-                const uvSet = options[uname];
-                useUv[uvSet] = true;
-                useUnmodifiedUv[uvSet] = useUnmodifiedUv[uvSet] || (options[mname] && !options[tname]);
-            }
-        }
-
-        if (options.forceUv1) {
-            useUv[1] = true;
-            useUnmodifiedUv[1] = (useUnmodifiedUv[1] !== undefined) ? useUnmodifiedUv[1] : true;
-        }
 
         for (let i = 0; i < maxUvSets; i++) {
             if (useUv[i]) {
@@ -352,16 +312,9 @@ class LitShader {
 
         const codes = [code, this.varyings, codeBody, []];
 
-        for (const p in _matTex2D) {
-            const mname = p + "Map";
-            if (options[mname]) {
-                const tname = mname + "Transform";
-                if (options[tname]) {
-                    const uname = mname + "Uv";
-                    this._setMapTransform(codes, p, options[tname], options[uname]);
-                }
-            }
-        }
+        mapTransforms.forEach((mapTransform) => {
+            this._setMapTransform(codes, mapTransform.name, mapTransform.id, mapTransform.uv);
+        });
 
         code = codes[0];
         this.varyings = codes[1];
@@ -574,10 +527,8 @@ class LitShader {
         const chunks = this.chunks;
         const varyings = this.varyings;
 
-        const smode = options.pass - SHADER_SHADOW;
-        const numShadowModes = SHADOW_COUNT;
-        const lightType = Math.floor(smode / numShadowModes);
-        const shadowType = smode - lightType * numShadowModes;
+        const lightType = ShaderPass.toLightType(options.pass);
+        const shadowType = ShaderPass.toShadowType(options.pass);
 
         let code = this._fsGetBeginCode();
 
