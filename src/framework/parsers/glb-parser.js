@@ -752,100 +752,145 @@ const createSkin = (device, gltfSkin, accessors, bufferViews, nodes, glbSkins) =
     return skin;
 };
 
+const createDracoMesh = (device, dracoExt, primitive, accessors, bufferViews, meshVariants, meshDefaultMaterials) => {
+    // get the decoder module
+    const decoderModule = dracoDecoderInstance || getGlobalDracoDecoderModule();
+    if (!decoderModule) {
+        return null;
+    }
+
+    const mesh = new Mesh(device);
+
+    const uint8Buffer = bufferViews[dracoExt.bufferView];
+    const buffer = new decoderModule.DecoderBuffer();
+    buffer.Init(uint8Buffer, uint8Buffer.length);
+
+    const decoder = new decoderModule.Decoder();
+    const geometryType = decoder.GetEncodedGeometryType(buffer);
+
+    let outputGeometry, status;
+    switch (geometryType) {
+        case decoderModule.POINT_CLOUD:
+            primitiveType = PRIMITIVE_POINTS;
+            outputGeometry = new decoderModule.PointCloud();
+            status = decoder.DecodeBufferToPointCloud(buffer, outputGeometry);
+            break;
+        case decoderModule.TRIANGULAR_MESH:
+            primitiveType = PRIMITIVE_TRIANGLES;
+            outputGeometry = new decoderModule.Mesh();
+            status = decoder.DecodeBufferToMesh(buffer, outputGeometry);
+            break;
+        case decoderModule.INVALID_GEOMETRY_TYPE:
+        default:
+            break;
+    }
+
+    if (!status || !status.ok() || outputGeometry.ptr === 0) {
+        callback('Failed to decode draco compressed asset: ' +
+        (status ? status.error_msg() : ('Mesh asset - invalid draco compressed geometry type: ' + geometryType)));
+        return;
+    }
+
+    let indices;
+
+    // indices
+    const numFaces = outputGeometry.num_faces();
+    if (geometryType === decoderModule.TRIANGULAR_MESH) {
+        const bit32 = outputGeometry.num_points() > 65535;
+
+        const numIndices = numFaces * 3;
+        const dataSize = numIndices * (bit32 ? 4 : 2);
+        const ptr = decoderModule._malloc(dataSize);
+
+        if (bit32) {
+            decoder.GetTrianglesUInt32Array(outputGeometry, dataSize, ptr);
+            indices = new Uint32Array(decoderModule.HEAPU32.buffer, ptr, numIndices).slice();
+        } else {
+            decoder.GetTrianglesUInt16Array(outputGeometry, dataSize, ptr);
+            indices = new Uint16Array(decoderModule.HEAPU16.buffer, ptr, numIndices).slice();
+        }
+
+        decoderModule._free(ptr);
+    }
+
+    // vertices
+    mesh.vertexBuffer = createVertexBufferDraco(device, outputGeometry, dracoExt, decoder, decoderModule, indices, false);
+    mesh.primitive[0].type = getPrimitiveType(primitive);
+    mesh.primitive[0].indexed = !!indices;
+
+    // index buffer
+    if (indices !== null) {
+        let indexFormat;
+        if (indices instanceof Uint8Array) {
+            indexFormat = INDEXFORMAT_UINT8;
+        } else if (indices instanceof Uint16Array) {
+            indexFormat = INDEXFORMAT_UINT16;
+        } else {
+            indexFormat = INDEXFORMAT_UINT32;
+        }
+
+        // 32bit index buffer is used but not supported
+        if (indexFormat === INDEXFORMAT_UINT32 && !device.extUintElement) {
+
+            // #if _DEBUG
+            if (vertexBuffer.numVertices > 0xFFFF) {
+                console.warn('Glb file contains 32bit index buffer but these are not supported by this device - it may be rendered incorrectly.');
+            }
+            // #endif
+
+            // convert to 16bit
+            indexFormat = INDEXFORMAT_UINT16;
+            indices = new Uint16Array(indices);
+        }
+
+        mesh.indexBuffer[0] = new IndexBuffer(device, indexFormat, indices.length, BUFFER_STATIC, indices);
+        mesh.primitive[0].count = indices.length;
+    } else {
+        mesh.primitive[0].count = vertexBuffer.numVertices;
+    }
+
+    if (primitive.hasOwnProperty("extensions") && primitive.extensions.hasOwnProperty("KHR_materials_variants")) {
+        const variants = primitive.extensions.KHR_materials_variants;
+        const tempMapping = {};
+        variants.mappings.forEach((mapping) => {
+            mapping.variants.forEach((variant) => {
+                tempMapping[variant] = mapping.material;
+            });
+        });
+        meshVariants[mesh.id] = tempMapping;
+    }
+
+    meshDefaultMaterials[mesh.id] = primitive.material;
+
+    let accessor = accessors[primitive.attributes.POSITION];
+    mesh.aabb = getAccessorBoundingBox(accessor);
+
+    // clean up draco
+    decoderModule.destroy(outputGeometry);
+    decoderModule.destroy(decoder);
+    decoderModule.destroy(buffer);
+
+    return mesh;
+};
+
 const tempMat = new Mat4();
 const tempVec = new Vec3();
 
 const createMesh = (device, gltfMesh, accessors, bufferViews, callback, flipV, vertexBufferDict, meshVariants, meshDefaultMaterials, assetOptions) => {
     return gltfMesh.primitives.map((primitive) => {
-
-        const mesh = new Mesh(device);
-
-        let primitiveType, vertexBuffer, numIndices;
-        let indices = null;
-        let canUseMorph = true;
-
-        // attempt to decode draco compressed data first
         const dracoExt = primitive?.extensions?.KHR_draco_mesh_compression;
-        if (dracoExt && dracoExt.attributes) {
-            const decoderModule = dracoDecoderInstance || getGlobalDracoDecoderModule();
-            if (decoderModule) {
-                const uint8Buffer = bufferViews[dracoExt.bufferView];
-                const buffer = new decoderModule.DecoderBuffer();
-                buffer.Init(uint8Buffer, uint8Buffer.length);
+        if (dracoExt) {
+            return createDracoMesh(device, dracoExt, primitive, accessors, bufferViews, meshVariants, meshDefaultMaterials);
+        } else {
+            const mesh = new Mesh(device);
 
-                const decoder = new decoderModule.Decoder();
-                const geometryType = decoder.GetEncodedGeometryType(buffer);
+            // if mesh was not constructed from draco data, use uncompressed
+            const indices = primitive.hasOwnProperty('indices') ? getAccessorData(accessors[primitive.indices], bufferViews, true) : null;
+            const vertexBuffer = createVertexBuffer(device, primitive.attributes, indices, accessors, bufferViews, flipV, vertexBufferDict);
 
-                let outputGeometry, status;
-                switch (geometryType) {
-                    case decoderModule.POINT_CLOUD:
-                        primitiveType = PRIMITIVE_POINTS;
-                        outputGeometry = new decoderModule.PointCloud();
-                        status = decoder.DecodeBufferToPointCloud(buffer, outputGeometry);
-                        break;
-                    case decoderModule.TRIANGULAR_MESH:
-                        primitiveType = PRIMITIVE_TRIANGLES;
-                        outputGeometry = new decoderModule.Mesh();
-                        status = decoder.DecodeBufferToMesh(buffer, outputGeometry);
-                        break;
-                    case decoderModule.INVALID_GEOMETRY_TYPE:
-                    default:
-                        break;
-                }
-
-                if (!status || !status.ok() || outputGeometry.ptr === 0) {
-                    callback('Failed to decode draco compressed asset: ' +
-                    (status ? status.error_msg() : ('Mesh asset - invalid draco compressed geometry type: ' + geometryType)));
-                    return;
-                }
-
-                // indices
-                const numFaces = outputGeometry.num_faces();
-                if (geometryType === decoderModule.TRIANGULAR_MESH) {
-                    const bit32 = outputGeometry.num_points() > 65535;
-
-                    numIndices = numFaces * 3;
-                    const dataSize = numIndices * (bit32 ? 4 : 2);
-                    const ptr = decoderModule._malloc(dataSize);
-
-                    if (bit32) {
-                        decoder.GetTrianglesUInt32Array(outputGeometry, dataSize, ptr);
-                        indices = new Uint32Array(decoderModule.HEAPU32.buffer, ptr, numIndices).slice();
-                    } else {
-                        decoder.GetTrianglesUInt16Array(outputGeometry, dataSize, ptr);
-                        indices = new Uint16Array(decoderModule.HEAPU16.buffer, ptr, numIndices).slice();
-                    }
-
-                    decoderModule._free(ptr);
-                }
-
-                // vertices
-                vertexBuffer = createVertexBufferDraco(device, outputGeometry, dracoExt, decoder, decoderModule, indices, flipV);
-
-                // clean up
-                decoderModule.destroy(outputGeometry);
-                decoderModule.destroy(decoder);
-                decoderModule.destroy(buffer);
-
-                // morph streams are not compatible with draco compression, disable morphing
-                canUseMorph = false;
-
-            } else {
-                Debug.warn('File contains draco compressed data, but DracoDecoderModule is not configured.');
-            }
-        }
-
-        // if mesh was not constructed from draco data, use uncompressed
-        if (!vertexBuffer) {
-            indices = primitive.hasOwnProperty('indices') ? getAccessorData(accessors[primitive.indices], bufferViews, true) : null;
-            vertexBuffer = createVertexBuffer(device, primitive.attributes, indices, accessors, bufferViews, flipV, vertexBufferDict);
-            primitiveType = getPrimitiveType(primitive);
-        }
-
-        if (vertexBuffer) {
             // build the mesh
             mesh.vertexBuffer = vertexBuffer;
-            mesh.primitive[0].type = primitiveType;
+            mesh.primitive[0].type = getPrimitiveType(primitive);
             mesh.primitive[0].base = 0;
             mesh.primitive[0].indexed = (indices !== null);
 
@@ -898,7 +943,7 @@ const createMesh = (device, gltfMesh, accessors, bufferViews, callback, flipV, v
             mesh.aabb = getAccessorBoundingBox(accessor);
 
             // morph targets
-            if (canUseMorph && primitive.hasOwnProperty('targets')) {
+            if (primitive.hasOwnProperty('targets')) {
                 const targets = [];
 
                 primitive.targets.forEach((target, index) => {
@@ -937,9 +982,8 @@ const createMesh = (device, gltfMesh, accessors, bufferViews, callback, flipV, v
 
                 mesh.morph = new Morph(targets, device);
             }
+            return mesh;
         }
-
-        return mesh;
     });
 };
 
