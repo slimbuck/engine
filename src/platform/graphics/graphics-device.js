@@ -6,13 +6,13 @@ import { BlendState } from './blend-state.js';
 
 import {
     BUFFER_STATIC,
+    CLEARFLAG_COLOR,
+    CLEARFLAG_DEPTH,
     PRIMITIVE_POINTS, PRIMITIVE_TRIFAN, SEMANTIC_POSITION, TYPE_FLOAT32
 } from './constants.js';
 import { ScopeSpace } from './scope-space.js';
 import { VertexBuffer } from './vertex-buffer.js';
 import { VertexFormat } from './vertex-format.js';
-
-const EVENT_RESIZE = 'resizecanvas';
 
 /**
  * The graphics device manages the underlying graphics context. It is responsible for submitting
@@ -141,6 +141,15 @@ class GraphicsDevice extends EventHandler {
      * @ignore
      */
     blendState = new BlendState();
+
+    defaultClearOptions = {
+        color: [0, 0, 0, 1],
+        depth: 1,
+        stencil: 0,
+        flags: CLEARFLAG_COLOR | CLEARFLAG_DEPTH
+    };
+
+    static EVENT_RESIZE = 'resizecanvas';
 
     constructor(canvas) {
         super();
@@ -398,18 +407,6 @@ class GraphicsDevice extends EventHandler {
      * @ignore
      */
     resizeCanvas(width, height) {
-        this._width = width;
-        this._height = height;
-
-        const ratio = Math.min(this._maxPixelRatio, platform.browser ? window.devicePixelRatio : 1);
-        width = Math.floor(width * ratio);
-        height = Math.floor(height * ratio);
-
-        if (this.canvas.width !== width || this.canvas.height !== height) {
-            this.canvas.width = width;
-            this.canvas.height = height;
-            this.fire(EVENT_RESIZE, width, height);
-        }
     }
 
     /**
@@ -425,7 +422,7 @@ class GraphicsDevice extends EventHandler {
         this._height = height;
         this.canvas.width = width;
         this.canvas.height = height;
-        this.fire(EVENT_RESIZE, width, height);
+        this.fire(GraphicsDevice.EVENT_RESIZE, width, height);
     }
 
     updateClientRect() {
@@ -472,8 +469,10 @@ class GraphicsDevice extends EventHandler {
      * @type {number}
      */
     set maxPixelRatio(ratio) {
-        this._maxPixelRatio = ratio;
-        this.resizeCanvas(this._width, this._height);
+        if (this._maxPixelRatio !== ratio) {
+            this._maxPixelRatio = ratio;
+            this.resizeCanvas(this._width, this._height);
+        }
     }
 
     get maxPixelRatio() {
@@ -504,6 +503,15 @@ class GraphicsDevice extends EventHandler {
      */
     setBoneLimit(maxBones) {
         this.boneLimit = maxBones;
+    }
+
+    /**
+     * Function which executes at the start of the frame. This should not be called manually, as
+     * it is handled by the AppBase instance.
+     *
+     * @ignore
+     */
+    frameStart() {
     }
 }
 
