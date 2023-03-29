@@ -48,6 +48,7 @@ import { AnimData } from '../anim/evaluator/anim-data.js';
 import { AnimTrack } from '../anim/evaluator/anim-track.js';
 import { Asset } from '../asset/asset.js';
 import { GlbContainerResource } from './glb-container-resource.js';
+import { ABSOLUTE_URL } from '../asset/constants.js';
 
 // instance of the draco decoder
 let dracoDecoderInstance = null;
@@ -913,6 +914,14 @@ const createMesh = (device, gltfMesh, accessors, bufferViews, callback, flipV, v
                         console.warn('Glb file contains 32bit index buffer but these are not supported by this device - it may be rendered incorrectly.');
                     }
                     // #endif
+
+                    // convert to 16bit
+                    indexFormat = INDEXFORMAT_UINT16;
+                    indices = new Uint16Array(indices);
+                }
+
+                if (indexFormat === INDEXFORMAT_UINT8 && device.isWebGPU) {
+                    Debug.warn('Glb file contains 8bit index buffer but these are not supported by WebGPU - converting to 16bit.');
 
                     // convert to 16bit
                     indexFormat = INDEXFORMAT_UINT16;
@@ -2240,7 +2249,7 @@ const createImages = (gltf, bufferViews, urlBase, registry, options) => {
                 if (isDataURI(gltfImage.uri)) {
                     return loadTexture(gltfImage, gltfImage.uri, null, getDataURIMimeType(gltfImage.uri), null);
                 } else {
-                    return loadTexture(gltfImage, path.join(urlBase, gltfImage.uri), null, null, { crossOrigin: 'anonymous' });
+                    return loadTexture(gltfImage, ABSOLUTE_URL.test(gltfImage.uri) ? gltfImage.uri : path.join(urlBase, gltfImage.uri), null, null, { crossOrigin: 'anonymous' });
                 }
             } else if (gltfImage.hasOwnProperty('bufferView') && gltfImage.hasOwnProperty('mimeType')) {
                 // bufferview
@@ -2382,7 +2391,7 @@ const loadBuffers = (gltf, binaryChunk, urlBase, options) => {
                 } else {
                     return new Promise((resolve, reject) => {
                         http.get(
-                            path.join(urlBase, gltfBuffer.uri),
+                            ABSOLUTE_URL.test(gltfBuffer.uri) ? gltfBuffer.uri : path.join(urlBase, gltfBuffer.uri),
                             { cache: true, responseType: 'arraybuffer', retry: false },
                             (err, result) => {
                                 if (err) {
@@ -2624,32 +2633,30 @@ class GlbParser {
     }
 
     // parse the gltf or glb data synchronously. external resources (buffers and images) are ignored.
-    static parse(filename, data, device, options) {
-        let result = null;
-
+    static parse(filename, data, device, options, callback) {
         options = options || { };
 
         // parse the data
         parseChunk(filename, data, (err, chunks) => {
             if (err) {
-                console.error(err);
+                callback(err);
             } else {
                 // parse gltf
                 parseGltf(chunks.gltfChunk, (err, gltf) => {
                     if (err) {
-                        console.error(err);
+                        callback(err);
                     } else {
                         // parse buffer views
                         parseBufferViewsAsync(gltf, [chunks.binaryChunk], options, (err, bufferViews) => {
                             if (err) {
-                                console.error(err);
+                                callback(err);
                             } else {
                                 // create resources
-                                createResources(device, gltf, bufferViews, [], options, (err, result_) => {
+                                createResources(device, gltf, bufferViews, [], options, (err, result) => {
                                     if (err) {
-                                        console.error(err);
+                                        callback(err);
                                     } else {
-                                        result = result_;
+                                        callback(null, result);
                                     }
                                 });
                             }
@@ -2658,8 +2665,6 @@ class GlbParser {
                 });
             }
         });
-
-        return result;
     }
 
     constructor(device, assets, maxRetries) {
