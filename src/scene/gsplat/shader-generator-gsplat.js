@@ -5,6 +5,7 @@ import { shaderChunks } from "../shader-lib/chunks/chunks.js";
 import { ShaderGenerator } from "../shader-lib/programs/shader-generator.js";
 import { ShaderPass } from "../shader-pass.js";
 import { SEMANTIC_POSITION } from "../../platform/graphics/constants.js";
+
 const splatCoreVS = `
     uniform mat4 matrix_model;
     uniform mat4 matrix_view;
@@ -20,7 +21,6 @@ const splatCoreVS = `
     varying float id;
 
     uniform vec4 tex_params;
-    uniform highp usampler2D splatOrder;
     uniform sampler2D splatColor;
 
     uniform highp sampler2D transformA;
@@ -40,12 +40,7 @@ const splatCoreVS = `
         ivec2 textureSize = ivec2(tex_params.xy);
         vec2 invTextureSize = tex_params.zw;
 
-        uint splatIndex = vertex_id_attrib;
-
-        // order
-        int orderV = int(float(splatIndex) * invTextureSize.x);
-        int orderU = int(splatIndex) - orderV * textureSize.x;
-        vertex_id = texelFetch(splatOrder, ivec2(orderU, orderV), 0).r;
+        vertex_id = vertex_id_attrib;
 
         int gridV = int(float(vertex_id) * invTextureSize.x);
         int gridU = int(vertex_id) - gridV * textureSize.x;
