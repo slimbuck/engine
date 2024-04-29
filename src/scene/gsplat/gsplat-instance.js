@@ -1,6 +1,6 @@
 import { Mat4 } from '../../core/math/mat4.js';
 import { Vec3 } from '../../core/math/vec3.js';
-import { BUFFER_GPUDYNAMIC, SEMANTIC_POSITION, TYPE_UINT32 } from '../../platform/graphics/constants.js';
+import { BUFFER_DYNAMIC, BUFFER_GPUDYNAMIC, SEMANTIC_POSITION, TYPE_UINT32 } from '../../platform/graphics/constants.js';
 import { VertexBuffer } from '../../platform/graphics/vertex-buffer.js';
 import { VertexFormat } from '../../platform/graphics/vertex-format.js';
 import { DITHER_NONE } from '../constants.js';
@@ -120,7 +120,7 @@ class GSplatInstance {
             type: TYPE_UINT32,
             asInt: true
         }])
-        const idsVertexBuffer = new VertexBuffer(device, idsVertexFormat, numSplats);
+        const idsVertexBuffer = new VertexBuffer(device, idsVertexFormat, numSplats, { usage: BUFFER_DYNAMIC });
         idsVertexBuffer.unlock();
 
         const idsOutputFormat = new VertexFormat(device, [{
@@ -129,7 +129,7 @@ class GSplatInstance {
             type: TYPE_UINT32,
             asInt: true
         }]);
-        const idsOutputBuffer = new VertexBuffer(device, idsOutputFormat, numSplats);
+        const idsOutputBuffer = new VertexBuffer(device, idsOutputFormat, numSplats, { usage: BUFFER_GPUDYNAMIC });
         idsOutputBuffer.unlock();
 
         // hack: use the output bufferid
