@@ -47,12 +47,6 @@ void splatMain() {
     ivec2 splatUV;
     getSplatUV(splatId, splatUV);
 
-    // cull splat behind camera
-    // if (centerProj.z < -centerProj.w) {
-    //     gl_Position = vec4(0.0);
-    //     return;
-    // }
-
     vec4 v1v2 = texelFetch(v1v2Texture, splatUV, 0);
     // vec4 v1v2 = vec4(32.0, 0.0, 0.0, 32.0);
 
