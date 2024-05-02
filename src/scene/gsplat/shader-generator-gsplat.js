@@ -59,7 +59,7 @@ void splatMain() {
     // early out tiny splats
     // TODO: figure out length units and expose as uniform parameter
     // TODO: perhaps make this a shader compile-time option
-    if (dot(v1v2.xy, v1v2.xy) < 16.0 && dot(v1v2.zw, v1v2.zw) < 16.0) {
+    if (dot(v1v2.xy, v1v2.xy) < 4.0 && dot(v1v2.zw, v1v2.zw) < 4.0) {
         gl_Position = vec4(0.0);
         return;
     }
