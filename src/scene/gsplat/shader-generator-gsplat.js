@@ -47,9 +47,6 @@ void splatMain() {
     ivec2 splatUV;
     getSplatUV(splatId, splatUV);
 
-    vec3 center = texelFetch(transformA, splatUV, 0).xyz;
-    vec4 centerProj = matrix_projection * matrix_view * matrix_model * vec4(center, 1.0);
-
     // cull splat behind camera
     // if (centerProj.z < -centerProj.w) {
     //     gl_Position = vec4(0.0);
@@ -66,6 +63,9 @@ void splatMain() {
         gl_Position = vec4(0.0);
         return;
     }
+
+    vec3 center = texelFetch(transformA, splatUV, 0).xyz;
+    vec4 centerProj = matrix_projection * matrix_view * matrix_model * vec4(center, 1.0);
 
     texCoord = vertex_position.xy;
     centerProj.xy += (texCoord.x * v1v2.xy + texCoord.y * v1v2.zw) / viewport * centerProj.w;
