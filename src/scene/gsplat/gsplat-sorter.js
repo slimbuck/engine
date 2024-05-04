@@ -71,7 +71,7 @@ function SortWorker() {
         lastCameraDirection.z = dz;
 
         // create distance buffer
-        const numVertices = centers.length / 3;
+        const numVertices = data.length;
         if (distances?.length !== numVertices) {
             distances = new Uint32Array(numVertices);
         }
