@@ -9,6 +9,7 @@ import { SEMANTIC_POSITION } from "../../platform/graphics/constants.js";
 // vertex shader
 const splatCoreVS = /* glsl */ `
 
+uniform mat4 matrix_model;
 uniform mat4 matrix_view;
 uniform mat4 matrix_projection;
 
@@ -71,7 +72,7 @@ void splatMain() {
 
     vec3 center = texelFetch(transformA, splatUV, 0).xyz;
 
-    vec4 centerProj = matrix_projection * matrix_view * vec4(center, 1.0);
+    vec4 centerProj = matrix_projection * matrix_view * matrix_model * vec4(center, 1.0);
 
     // cull splat behind camera
     if (centerProj.z < -centerProj.w) {
