@@ -21,7 +21,10 @@ attribute uint vertex_id_attrib;
 
 varying vec2 texCoord;
 varying vec4 color;
-varying float id;
+
+#ifndef DITHER_NONE
+    varying float id;
+#endif
 
 uniform vec4 tex_params;
 uniform highp sampler2D v1v2Texture;
@@ -65,7 +68,10 @@ void splatMain() {
     centerProj.xy += (texCoord.x * v1v2.xy + texCoord.y * v1v2.zw) / viewport * centerProj.w;
     gl_Position = centerProj;
     color = texelFetch(splatColor, splatUV, 0);
+
+#ifndef DITHER_NONE
     id = float(splatId);
+#endif
 }
 `;
 
@@ -74,7 +80,10 @@ const splatCoreFS = /* glsl */ `
 
 varying vec2 texCoord;
 varying vec4 color;
-varying float id;
+
+#ifndef DITHER_NONE
+    varying float id;
+#endif
 
 #ifdef PICK_PASS
     uniform vec4 uColor;
