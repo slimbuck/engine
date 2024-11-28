@@ -7,10 +7,11 @@ function SortWorker() {
     // number of bits used to store the distance in integer array. Smaller number gives it a smaller
     // precision but faster sorting. Could be dynamic for less precise sorting.
     // 16bit seems plenty of large scenes (train), 10bits is enough for sled.
-    const compareBits = 16;
+    const bucketBits = 16;
+    const subbucketBits = 10;
 
-    // number of buckets for count sorting to represent each unique distance using compareBits bits
-    const bucketCount = (2 ** compareBits) + 1;
+    // number of buckets for count sorting to represent each unique distance using bucketBits bits
+    const bucketCount = 1 << bucketBits;
 
     let order;
     let centers;
@@ -26,23 +27,9 @@ function SortWorker() {
     const boundMin = { x: 0, y: 0, z: 0 };
     const boundMax = { x: 0, y: 0, z: 0 };
 
-    let distances;
-    let countBuffer;
-
-    const binarySearch = (m, n, compare_fn) => {
-        while (m <= n) {
-            const k = (n + m) >> 1;
-            const cmp = compare_fn(k);
-            if (cmp > 0) {
-                m = k + 1;
-            } else if (cmp < 0) {
-                n = k - 1;
-            } else {
-                return k;
-            }
-        }
-        return ~m;
-    };
+    let buckets;
+    let bucketSizes;
+    let bucketOffsets;
 
     const update = () => {
         if (!order || !centers || !cameraPosition || !cameraDirection) return;
@@ -77,13 +64,23 @@ function SortWorker() {
 
         // create distance buffer
         const numVertices = centers.length / 3;
-        if (distances?.length !== numVertices) {
-            distances = new Uint32Array(numVertices);
+
+        let skip = 0;
+
+        if (buckets?.length !== numVertices) {
+            buckets = new Uint32Array(numVertices);
         }
 
-        // calc min/max distance using bound
-        let minDist;
-        let maxDist;
+        if (!bucketSizes) {
+            bucketSizes = new Uint32Array(bucketCount);
+            bucketOffsets = new Uint32Array(bucketCount);
+        } else {
+            bucketSizes.fill(0);
+        }
+
+        // calc depth min/max using bounding box
+        let minDist = 0;
+        let maxDist = 0;
         for (let i = 0; i < 8; ++i) {
             const x = (i & 1 ? boundMin.x : boundMax.x) - px;
             const y = (i & 2 ? boundMin.y : boundMax.y) - py;
@@ -97,52 +94,71 @@ function SortWorker() {
             }
         }
 
-        if (!countBuffer) {
-            countBuffer = new Uint32Array(bucketCount);
-        } else {
-            countBuffer.fill(0);
-        }
+        // positive distances are behind the camera
+        maxDist = Math.min(maxDist, 0);
 
-        // generate per vertex distance to camera
+        // calculate per-point distance to camera and assign bucket
         const range = maxDist - minDist;
-        const divider = (range < 1e-6) ? 0 : 1 / range * (2 ** compareBits);
+        const divider = (range < 1e-6) ? 0 : (1 << (bucketBits + subbucketBits)) / range;
         for (let i = 0; i < numVertices; ++i) {
             const istride = i * 3;
             const x = centers[istride + 0] - px;
             const y = centers[istride + 1] - py;
             const z = centers[istride + 2] - pz;
             const d = x * dx + y * dy + z * dz;
-            const sortKey = Math.floor((d - minDist) * divider);
 
-            distances[i] = sortKey;
-
-            // count occurrences of each distance
-            countBuffer[sortKey]++;
+            if (d > maxDist) {
+                // point is behind the user
+                buckets[i] = 0xffffffff;
+            } else {
+                const bucket = Math.floor((d - minDist) * divider);
+                buckets[i] = bucket;
+                bucketSizes[bucket >>> subbucketBits]++;
+            }
         }
 
-        // Change countBuffer[i] so that it contains actual position of this digit in outputArray
+        // calculate bucket offsets from sizes
+        bucketOffsets[0] = bucketSizes[0];
         for (let i = 1; i < bucketCount; i++) {
-            countBuffer[i] += countBuffer[i - 1];
+            bucketOffsets[i] = bucketOffsets[i - 1] + bucketSizes[i];
         }
 
-        // Build the output array
+        // build the output array
         for (let i = 0; i < numVertices; i++) {
-            const distance = distances[i];
-            const destIndex = --countBuffer[distance];
-            order[destIndex] = i;
+            const bucket = buckets[i];
+            if (bucket === 0xffffffff) {
+                skip++;
+            } else {
+                const destIndex = --bucketOffsets[bucket >>> subbucketBits];
+                order[destIndex] = (bucket << 22) | i;  // store bucket in top bits and index below
+            }
         }
 
-        // find splat with distance 0 to limit rendering behind the camera
-        const dist = i => distances[order[i]] / divider + minDist;
-        const findZero = () => {
-            const result = binarySearch(0, numVertices - 1, i => -dist(i));
-            return Math.min(numVertices, Math.abs(result));
+        const inplaceSort = (data, start, end) => {
+            (new Uint32Array(data.buffer, start * 4, end - start)).sort();
         };
-        const count = dist(numVertices - 1) >= 0 ? findZero() : numVertices;
+
+        // full sort closest vertices
+        const sortStart = numVertices - skip - 256 * 1024;
+        let start = 0;
+        for (let i = 0; i < bucketCount; i++) {
+            const end = start + bucketSizes[i];
+            if (end - start > 1) {
+                if (start > sortStart) {
+                    inplaceSort(order, start, end);
+                }
+            }
+            start = end;
+        }
+
+        // remove bucket bits
+        for (let i = 0; i < numVertices - skip; i++) {
+            order[i] &= 0x3fffff;
+        }
 
         // apply mapping
         if (mapping) {
-            for (let i = 0; i < numVertices; ++i) {
+            for (let i = 0; i < numVertices - skip; ++i) {
                 order[i] = mapping[order[i]];
             }
         }
@@ -150,7 +166,7 @@ function SortWorker() {
         // send results
         self.postMessage({
             order: order.buffer,
-            count
+            count: numVertices - skip
         }, [order.buffer]);
 
         order = null;
