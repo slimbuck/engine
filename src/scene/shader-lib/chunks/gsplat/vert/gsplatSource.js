@@ -22,17 +22,17 @@ bool initSource(out SplatSource source) {
     // read splat id
     source.id = texelFetch(splatOrder, orderUV, 0).r;
 
-    // uint chunkIndex = source.id / 256u;
-    // uint chunkU = chunkIndex % 256u;
-    // uint chunkV = chunkIndex / 256u;
+    uint chunkIndex = source.id / 256u;
+    uint chunkU = chunkIndex % 256u;
+    uint chunkV = chunkIndex / 256u;
 
-    // uint pixelIndex = source.id % 256u;
-    // uint pixelU = pixelIndex % 16u;
-    // uint pixelV = pixelIndex / 16u;
+    uint pixelIndex = source.id % 256u;
+    uint pixelU = pixelIndex % 16u;
+    uint pixelV = pixelIndex / 16u;
 
     // map id to uv
-    // source.uv = ivec2(chunkU * 16u + pixelU, chunkV * 16u + pixelV);
-    source.uv = ivec2(source.id % w, source.id / w);
+    source.uv = ivec2(chunkU * 16u + pixelU, chunkV * 16u + pixelV);
+    // source.uv = ivec2(source.id % w, source.id / w);
 
     // get the corner
     source.cornerUV = vertex_position.xy;

@@ -116,9 +116,19 @@ class GSplatCompressed {
 
         // load optional spherical harmonics data
         if (shBands > 0) {
-            this.shTexture0 = this.createTexture('shTexture0', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.shData0.buffer));
-            this.shTexture1 = this.createTexture('shTexture1', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.shData1.buffer));
-            this.shTexture2 = this.createTexture('shTexture2', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.shData2.buffer));
+
+            // swizzle sh data
+            const shData0 = new Uint32Array(gsplatData.shData0.buffer);
+            const shData1 = new Uint32Array(gsplatData.shData1.buffer);
+            const shData2 = new Uint32Array(gsplatData.shData2.buffer);
+
+            swizzlePackedData(shData0, dims.x, dims.y);
+            swizzlePackedData(shData1, dims.x, dims.y);
+            swizzlePackedData(shData2, dims.x, dims.y);
+
+            this.shTexture0 = this.createTexture('shTexture0', PIXELFORMAT_RGBA32U, dims, shData0);
+            this.shTexture1 = this.createTexture('shTexture1', PIXELFORMAT_RGBA32U, dims, shData1);
+            this.shTexture2 = this.createTexture('shTexture2', PIXELFORMAT_RGBA32U, dims, shData2);
         } else {
             this.shTexture0 = null;
             this.shTexture1 = null;
