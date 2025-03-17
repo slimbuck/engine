@@ -2,7 +2,7 @@ import { Vec2 } from '../../core/math/vec2.js';
 import { Texture } from '../../platform/graphics/texture.js';
 import { BoundingBox } from '../../core/shape/bounding-box.js';
 import {
-    ADDRESS_CLAMP_TO_EDGE, FILTER_NEAREST, PIXELFORMAT_RGBA8, PIXELFORMAT_RGBA32F, PIXELFORMAT_RGBA32U
+    ADDRESS_CLAMP_TO_EDGE, FILTER_NEAREST, PIXELFORMAT_RGBA32F, PIXELFORMAT_RGBA32U
 } from '../../platform/graphics/constants.js';
 import { createGSplatMaterial } from './gsplat-material.js';
 
@@ -22,7 +22,7 @@ const strideCopy = (target, targetStride, src, srcStride, numEntries) => {
     }
 };
 
-// rearrange packed data from linear into blocks of 16 x 16
+// rearrange packed RGBA32U texel data from being layed out linearly into blocks of 16 x 16
 const swizzlePackedData = (data, width, height) => {
     // stores 16 rows of pixels at a time
     const tmp = new Uint32Array(width * 4 * 16);
@@ -79,11 +79,15 @@ class GSplatCompressed {
 
         this.device = device;
         this.numSplats = numSplats;
-        this.numVisibleSplats = numSplats;
+        this.numSplatsVisible = numSplats;
 
         // initialize aabb
         this.aabb = new BoundingBox();
         gsplatData.calcAabb(this.aabb);
+
+        // initialize centers
+        this.centers = new Float32Array(numSplats * 3);
+        gsplatData.getCenters(this.centers);
 
         // initialize centers
         this.centers = new Float32Array(numSplats * 3);
