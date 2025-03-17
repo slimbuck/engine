@@ -55,9 +55,6 @@ class GSplatCompressed {
     /** @type {BoundingBox} */
     aabb;
 
-    /** @type {Float32Array} */
-    centers;
-
     /** @type {Texture} */
     packedTexture;
 
@@ -119,9 +116,9 @@ class GSplatCompressed {
 
         // load optional spherical harmonics data
         if (shBands > 0) {
-            this.shTexture0 =this.createTexture('shTexture0', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.sh0.buffer));
-            this.shTexture1 =this.createTexture('shTexture1', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.sh1.buffer));
-            this.shTexture2 =this.createTexture('shTexture2', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.sh2.buffer));
+            this.shTexture0 = this.createTexture('shTexture0', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.shData0.buffer));
+            this.shTexture1 = this.createTexture('shTexture1', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.shData1.buffer));
+            this.shTexture2 = this.createTexture('shTexture2', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.shData2.buffer));
         } else {
             this.shTexture0 = null;
             this.shTexture1 = null;
