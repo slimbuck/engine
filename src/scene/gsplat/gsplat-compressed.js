@@ -2,7 +2,7 @@ import { Vec2 } from '../../core/math/vec2.js';
 import { Texture } from '../../platform/graphics/texture.js';
 import { BoundingBox } from '../../core/shape/bounding-box.js';
 import {
-    ADDRESS_CLAMP_TO_EDGE, FILTER_NEAREST, PIXELFORMAT_RGBA32F, PIXELFORMAT_RGBA32U
+    ADDRESS_CLAMP_TO_EDGE, FILTER_NEAREST, PIXELFORMAT_RGBA8, PIXELFORMAT_RGBA32F, PIXELFORMAT_RGBA32U
 } from '../../platform/graphics/constants.js';
 import { createGSplatMaterial } from './gsplat-material.js';
 
@@ -18,6 +18,29 @@ const strideCopy = (target, targetStride, src, srcStride, numEntries) => {
     for (let i = 0; i < numEntries; ++i) {
         for (let j = 0; j < srcStride; ++j) {
             target[i * targetStride + j] = src[i * srcStride + j];
+        }
+    }
+};
+
+// rearrange packed data from linear into blocks of 16 x 16
+const swizzlePackedData = (data, width, height) => {
+    // stores 16 rows of pixels at a time
+    const tmp = new Uint32Array(width * 4 * 16);
+
+    for (let chunkHigh = 0; chunkHigh < height / 16; ++chunkHigh) {
+        tmp.set(data.subarray(width * 4 * 16 * chunkHigh, width * 4 * 16 * (chunkHigh + 1)));
+
+        // swizzle
+        for (let chunkWide = 0; chunkWide < width / 16; ++chunkWide) {
+            for (let j = 0; j < 16; ++j) {
+                for (let k = 0; k < 16; ++k) {
+                    const src = 4 * (chunkWide * 256 + j * 16 + k);
+                    const dst = 4 * ((chunkHigh * 16 + j) * width + chunkWide * 16 + k);
+                    for (let l = 0; l < 4; ++l) {
+                        data[dst + l] = tmp[src + l];
+                    }
+                }
+            }
         }
     }
 };
@@ -69,14 +92,17 @@ class GSplatCompressed {
         this.centers = new Float32Array(numSplats * 3);
         gsplatData.getCenters(this.centers);
 
+        const dims = this.evalTextureSize(numSplats);
+        const chunkDims = new Vec2(dims.x / 16 * 5, dims.y / 16);
+
+        // swizzle packed data
+        swizzlePackedData(vertexData, dims.x, dims.y);
+
         // initialize packed data
-        this.packedTexture = this.createTexture('packedData', PIXELFORMAT_RGBA32U, this.evalTextureSize(numSplats), vertexData);
+        this.packedTexture = this.createTexture('packedData', PIXELFORMAT_RGBA32U, dims, vertexData);
 
         // initialize chunk data
-        const chunkTextureSize = this.evalTextureSize(numChunks);
-        chunkTextureSize.x *= 5;
-
-        this.chunkTexture = this.createTexture('chunkData', PIXELFORMAT_RGBA32F, chunkTextureSize);
+        this.chunkTexture = this.createTexture('chunkData', PIXELFORMAT_RGBA32F, chunkDims);
         const chunkTextureData = this.chunkTexture.lock();
         strideCopy(chunkTextureData, 20, chunkData, chunkSize, numChunks);
 
@@ -93,39 +119,9 @@ class GSplatCompressed {
 
         // load optional spherical harmonics data
         if (shBands > 0) {
-            const { shData } = gsplatData;
-
-            const size = this.evalTextureSize(numSplats);
-
-            const texture0 = this.createTexture('shTexture0', PIXELFORMAT_RGBA32U, size);
-            const texture1 = this.createTexture('shTexture1', PIXELFORMAT_RGBA32U, size);
-            const texture2 = this.createTexture('shTexture2', PIXELFORMAT_RGBA32U, size);
-
-            const data0 = texture0.lock();
-            const data1 = texture1.lock();
-            const data2 = texture2.lock();
-
-            const target0 = new Uint8Array(data0.buffer);
-            const target1 = new Uint8Array(data1.buffer);
-            const target2 = new Uint8Array(data2.buffer);
-
-            const srcCoeffs = [3, 8, 15][shBands - 1];
-
-            for (let i = 0; i < numSplats; ++i) {
-                for (let j = 0; j < 15; ++j) {
-                    target0[i * 16 + j] = j < srcCoeffs ? shData[(i * 3 + 0) * srcCoeffs + j] : 127;
-                    target1[i * 16 + j] = j < srcCoeffs ? shData[(i * 3 + 1) * srcCoeffs + j] : 127;
-                    target2[i * 16 + j] = j < srcCoeffs ? shData[(i * 3 + 2) * srcCoeffs + j] : 127;
-                }
-            }
-
-            texture0.unlock();
-            texture1.unlock();
-            texture2.unlock();
-
-            this.shTexture0 = texture0;
-            this.shTexture1 = texture1;
-            this.shTexture2 = texture2;
+            this.shTexture0 =this.createTexture('shTexture0', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.sh0.buffer));
+            this.shTexture1 =this.createTexture('shTexture1', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.sh1.buffer));
+            this.shTexture2 =this.createTexture('shTexture2', PIXELFORMAT_RGBA32U, dims, new Uint32Array(gsplatData.sh2.buffer));
         } else {
             this.shTexture0 = null;
             this.shTexture1 = null;
@@ -171,8 +167,11 @@ class GSplatCompressed {
      * @returns {Vec2} The width and height of the texture.
      */
     evalTextureSize(count) {
-        const width = Math.ceil(Math.sqrt(count));
-        const height = Math.ceil(count / width);
+        const chunks = Math.ceil(count / 256);
+        const chunksWide = Math.min(chunks, 4096 / 16);
+        const chunksHigh = Math.ceil(chunks / chunksWide);
+        const width = chunksWide * 16;
+        const height = chunksHigh * 16;
         return new Vec2(width, height);
     }
 

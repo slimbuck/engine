@@ -1,9 +1,10 @@
 import { Mat4 } from '../../core/math/mat4.js';
 import { Vec3 } from '../../core/math/vec3.js';
-import { BUFFER_STATIC, PIXELFORMAT_R32U, SEMANTIC_ATTR13, TYPE_UINT32 } from '../../platform/graphics/constants.js';
+import { BUFFER_STATIC, PIXELFORMAT_RGBA8, PIXELFORMAT_R32U, SEMANTIC_ATTR13, TYPE_UINT32 } from '../../platform/graphics/constants.js';
 import { DITHER_NONE } from '../constants.js';
 import { MeshInstance } from '../mesh-instance.js';
 import { Mesh } from '../mesh.js';
+import { GSplatCompressedInstance } from './gsplat-compressed-instance.js'
 import { GSplatSorter } from './gsplat-sorter.js';
 import { VertexFormat } from '../../platform/graphics/vertex-format.js';
 import { VertexBuffer } from '../../platform/graphics/vertex-buffer.js';
@@ -14,7 +15,7 @@ import { VertexBuffer } from '../../platform/graphics/vertex-buffer.js';
  * @import { GraphNode } from '../graph-node.js'
  * @import { Material } from '../materials/material.js'
  * @import { SplatMaterialOptions } from './gsplat-material.js'
- * @import { Texture } from '../../platform/graphics/texture.js'
+ * @import { Texture } from '../../platform/graphics/texture.js'\
  */
 
 const mat = new Mat4();
@@ -48,6 +49,9 @@ class GSplatInstance {
 
     lastCameraDirection = new Vec3();
 
+    /** @type {GSplatCompressedInstance} */
+    compressedInstance;
+
     /**
      * List of cameras this instance is visible for. Updated every frame by the renderer.
      *
@@ -74,6 +78,8 @@ class GSplatInstance {
             PIXELFORMAT_R32U,
             this.splat.evalTextureSize(this.splat.numSplats)
         );
+
+        this.compressedInstance = this.splat.packedTexture && new GSplatCompressedInstance(this.splat);
 
         // material
         this.createMaterial(options);
@@ -219,6 +225,9 @@ class GSplatInstance {
 
             // we get new list of cameras each frame
             this.cameras.length = 0;
+
+            // update compressed instance
+            this.compressedInstance?.update(camera);
         }
     }
 }

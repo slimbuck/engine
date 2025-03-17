@@ -257,15 +257,20 @@ const readCompressedPly = async (streamBuf, elements) => {
     // evaluate the storage size for the given count (this must match the
     // texture size calculation in GSplatCompressed).
     const evalStorageSize = (count) => {
-        const width = Math.ceil(Math.sqrt(count));
-        const height = Math.ceil(count / width);
+        const chunks = Math.ceil(count / 256);
+        const chunksWide = Math.min(chunks, 4096 / 16);
+        const chunksHigh = Math.ceil(chunks / chunksWide);
+        const width = chunksWide * 16;
+        const height = chunksHigh * 16;
         return width * height;
     };
+
+    const storageSize = evalStorageSize(numVertices);
 
     // allocate result
     result.numSplats = numVertices;
     result.chunkData = new Float32Array(numChunks * numChunkProperties);
-    result.vertexData = new Uint32Array(evalStorageSize(numVertices) * 4);
+    result.vertexData = new Uint32Array(storageSize * 4);
 
     // read length bytes of data into buffer
     const read = async (buffer, length) => {
@@ -294,8 +299,53 @@ const readCompressedPly = async (streamBuf, elements) => {
 
     // read sh data
     if (elements.length === 3) {
-        result.shData = new Uint8Array(elements[2].count * elements[2].properties.length);
-        await read(result.shData.buffer, result.shData.byteLength);
+        // result.shData = new Uint8Array(elements[2].count * elements[2].properties.length);
+        // await read(result.shData.buffer, result.shData.byteLength);
+
+        // allocate memory for 48 coefficients per gaussian
+        const texStorageSize = storageSize * 16;            // RGBA32U data
+        const shTex = [
+            new Uint8Array(texStorageSize),
+            new Uint8Array(texStorageSize),
+            new Uint8Array(texStorageSize),
+        ];
+
+        // the file contains 1, 2 or 3 bands of SH data (with 9, 24 or 45 coefficients respectively)
+        // we must load the data and pad it for GPU
+        const chunkSize = 1024;
+        const inputCoeffs = elements[2].properties.length;
+        const tmpBuf = new Uint8Array(chunkSize * inputCoeffs);
+
+        // read in chunks of 1k gaussians and write to the padded texture data
+        for (let i = 0; i < result.numSplats; i += chunkSize) {
+            const toRead = Math.min(chunkSize, result.numSplats - i);
+
+            // read the next chunk of data
+            await read(tmpBuf.buffer, toRead * inputCoeffs);
+
+            // pad the data
+            for (let j = 0; j < toRead; ++j) {
+                for (let k = 0; k < 15; ++k) {
+                    const tidx = (i + j) * 16 + k;
+                    if (k < inputCoeffs / 3) {
+                        shTex[0][tidx] = tmpBuf[j * inputCoeffs + k * 3];
+                        shTex[1][tidx] = tmpBuf[j * inputCoeffs + k * 3 + 1];
+                        shTex[2][tidx] = tmpBuf[j * inputCoeffs + k * 3 + 2];
+                    } else {
+                        shTex[0][tidx] = 127;
+                        shTex[1][tidx] = 127;
+                        shTex[2][tidx] = 127;
+                    }
+                }
+            }
+        }
+
+        result.sh0 = shTex[0];
+        result.sh1 = shTex[1];
+        result.sh2 = shTex[2];
+        result.shBands = { 9: 1, 24: 2, 45: 3 }[inputCoeffs];
+    } else {
+        result.shBands = 0;
     }
 
     return result;

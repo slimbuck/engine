@@ -121,7 +121,12 @@ class GSplatCompressedData {
      * Contains optional quantized spherical harmonic data for up to 3 bands.
      * @type {Uint8Array}
      */
-    shData;
+    sh0;
+    sh1;
+    sh2;
+
+    // number of bands
+    shBands;
 
     /**
      * Create an iterator for accessing splat data
@@ -233,14 +238,14 @@ class GSplatCompressedData {
         return this.chunkData.length / this.numChunks;
     }
 
-    get shBands() {
-        const sizes = {
-            3: 1,
-            8: 2,
-            15: 3
-        };
-        return sizes[this.shData?.length / this.numSplats / 3] ?? 0;
-    }
+    // get shBands() {
+    //     const sizes = {
+    //         3: 1,
+    //         8: 2,
+    //         15: 3
+    //     };
+    //     return sizes[this.shData?.length / this.numSplats / 3] ?? 0;
+    // }
 
     // decompress into GSplatData
     decompress() {
