@@ -1,7 +1,6 @@
 export default /* glsl */`
 uniform highp usampler2D packedTexture;
 uniform highp sampler2D chunkTexture;
-
 uniform sampler2D shTexture;
 
 // work values
