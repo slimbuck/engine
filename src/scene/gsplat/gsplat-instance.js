@@ -167,6 +167,7 @@ class GSplatInstance {
     createMaterial(options) {
         this.material = this.splat.createMaterial(options);
         this.material.setParameter('splatOrder', this.orderTexture);
+        this.material.setParameter('shTexture', this.compressedInstance?.colorTexture);
         if (this.meshInstance) {
             this.meshInstance.material = this.material;
         }
@@ -227,7 +228,7 @@ class GSplatInstance {
             this.cameras.length = 0;
 
             // update compressed instance
-            this.compressedInstance?.update(camera);
+            this.compressedInstance?.update(camera.node.getPosition(), this.meshInstance.node);
         }
     }
 }

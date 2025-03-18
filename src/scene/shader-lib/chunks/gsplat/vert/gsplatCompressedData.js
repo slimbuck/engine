@@ -2,6 +2,8 @@ export default /* glsl */`
 uniform highp usampler2D packedTexture;
 uniform highp sampler2D chunkTexture;
 
+uniform sampler2D shTexture;
+
 // work values
 vec4 chunkDataA;    // x: min_x, y: min_y, z: min_z, w: max_x
 vec4 chunkDataB;    // x: max_y, y: max_z, z: scale_min_x, w: scale_min_y
@@ -79,7 +81,11 @@ vec3 readCenter(SplatSource source) {
 
 vec4 readColor(in SplatSource source) {
     vec4 r = unpack8888(packedData.w);
-    return vec4(mix(chunkDataD.xyz, vec3(chunkDataD.w, chunkDataE.xy), r.rgb), r.w);
+
+    // add spherical harmonics
+    vec3 shData = texelFetch(shTexture, source.uv, 0).xyz * 2.0 - 1.0;
+
+    return vec4(mix(chunkDataD.xyz, vec3(chunkDataD.w, chunkDataE.xy), r.rgb) + shData, r.w);
 }
 
 vec4 getRotation() {

@@ -157,14 +157,7 @@ class GSplatCompressed {
         result.setParameter('packedTexture', this.packedTexture);
         result.setParameter('chunkTexture', this.chunkTexture);
         result.setParameter('numSplats', this.numSplatsVisible);
-        if (this.shTexture0) {
-            result.setDefine('SH_BANDS', 3);
-            result.setParameter('shTexture0', this.shTexture0);
-            result.setParameter('shTexture1', this.shTexture1);
-            result.setParameter('shTexture2', this.shTexture2);
-        } else {
-            result.setDefine('SH_BANDS', 0);
-        }
+        result.setDefine('SH_BANDS', 0);
         return result;
     }
 
