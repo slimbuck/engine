@@ -78,6 +78,17 @@ vec3 readCenter(SplatSource source) {
     return mix(chunkDataA.xyz, vec3(chunkDataA.w, chunkDataB.xy), unpack111011(packedData.x));
 }
 
+vec3 colors[8] = vec3[](
+    vec3(0.0, 0.0, 0.0),
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    vec3(1.0, 1.0, 0.0),
+    vec3(0.0, 0.0, 1.0),
+    vec3(1.0, 0.0, 1.0),
+    vec3(0.0, 1.0, 1.0),
+    vec3(1.0, 1.0, 1.0)
+);
+
 vec4 readColor(in SplatSource source) {
     vec4 r = unpack8888(packedData.w);
 
@@ -85,6 +96,9 @@ vec4 readColor(in SplatSource source) {
     vec3 shData = texelFetch(shTexture, source.uv, 0).xyz * 2.0 - 1.0;
 
     return vec4(mix(chunkDataD.xyz, vec3(chunkDataD.w, chunkDataE.xy), r.rgb) + shData, r.w);
+
+    // color chunks
+    // return vec4(colors[int(source.id / 256u) % 8], r.w);
 }
 
 vec4 getRotation() {
