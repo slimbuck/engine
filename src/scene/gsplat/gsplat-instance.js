@@ -15,7 +15,7 @@ import { VertexBuffer } from '../../platform/graphics/vertex-buffer.js';
  * @import { GraphNode } from '../graph-node.js'
  * @import { Material } from '../materials/material.js'
  * @import { SplatMaterialOptions } from './gsplat-material.js'
- * @import { Texture } from '../../platform/graphics/texture.js'\
+ * @import { Texture } from '../../platform/graphics/texture.js'
  */
 
 const mat = new Mat4();
