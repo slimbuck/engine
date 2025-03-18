@@ -270,6 +270,7 @@ class GSplatCompressedInstance {
         this.renderTarget = renderTarget;
         this.render = render;
         this.renderPass = renderPass;
+        this.prevCameraPosition = new Vec3();
     }
 
     destroy() {
@@ -281,8 +282,15 @@ class GSplatCompressedInstance {
     }
 
     update(cameraPosition, splatEntity) {
-        const { gsplatCompressed, renderTarget, renderPass } = this;
+        const { gsplatCompressed, renderTarget, renderPass, prevCameraPosition } = this;
         const { device } = gsplatCompressed;
+
+        // if the camera hasn't moved, no need to update spherical harmonics
+        if (cameraPosition.equals(prevCameraPosition)) {
+            return;
+        }
+
+        prevCameraPosition.copy(cameraPosition);
 
         // calculate the camera position in splat space
         splatInverse.invert(splatEntity.getWorldTransform());
