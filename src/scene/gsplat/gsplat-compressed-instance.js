@@ -18,6 +18,8 @@ uniform vec3 cameraPosition;
 
 varying vec3 positionMin;
 varying vec3 positionMax;
+varying vec3 colorMin;
+varying vec3 colorMax;
 
 void main(void) {
     int chunkIndex = int(vertex_position.z);
@@ -30,9 +32,13 @@ void main(void) {
     // read chunk data
     vec4 chunkDataA = texelFetch(chunkTexture, ivec2(chunkU * 5, chunkV), 0);
     vec4 chunkDataB = texelFetch(chunkTexture, ivec2(chunkU * 5 + 1, chunkV), 0);
+    vec4 chunkDataD = texelFetch(chunkTexture, ivec2(chunkU * 5 + 3, chunkV), 0);
+    vec4 chunkDataE = texelFetch(chunkTexture, ivec2(chunkU * 5 + 4, chunkV), 0);
 
     positionMin = chunkDataA.xyz;
     positionMax = vec3(chunkDataA.w, chunkDataB.xy);
+    colorMin = chunkDataD.xyz;
+    colorMax = vec3(chunkDataD.w, chunkDataE.xy);
 
     // output quad covering this chunk
     float u = (float(chunkU) + vertex_position.x) / float(width);
@@ -53,6 +59,12 @@ uniform vec3 cameraPosition;
 // chunk details
 varying vec3 positionMin;
 varying vec3 positionMax;
+varying vec3 colorMin;
+varying vec3 colorMax;
+
+vec4 unpack8888(in uint bits) {
+    return vec4((uvec4(bits) >> uvec4(24u, 16u, 8u, 0u)) & 0xffu) / 255.0;
+}
 
 vec4 unpack8888s(in uint bits) {
     return vec4((uvec4(bits) >> uvec4(0u, 8u, 16u, 24u)) & 0xffu) * (8.0 / 255.0) - 4.0;
@@ -153,10 +165,11 @@ void main() {
     ivec2 uv = ivec2(gl_FragCoord.xy);
 
     // read packed position
-    uint packedPosition = texelFetch(packedTexture, uv, 0).x;
+    uvec4 packedData = texelFetch(packedTexture, uv, 0);
 
     // unpack position with chunk min/max
-    vec3 position = mix(positionMin, positionMax, unpack111011(packedPosition));
+    vec3 position = mix(positionMin, positionMax, unpack111011(packedData.x));
+    vec4 color = mix(vec4(colorMin, 0.0), vec4(colorMax, 1.0), unpack8888(packedData.w));
 
     // read and unpack sh coefficients
     vec3 sh[15];
@@ -166,9 +179,9 @@ void main() {
     vec3 view = normalize(position - cameraPosition);
 
     // evaluate sh
-    vec3 result = evalSH(view, sh, 1.0);
+    vec3 result = color.xyz + evalSH(view, sh, 1.0);
 
-    gl_FragColor = vec4(result * 0.5 + vec3(0.5), 1.0);
+    gl_FragColor = vec4(result * 0.5, color.w);
 }
 `;
 

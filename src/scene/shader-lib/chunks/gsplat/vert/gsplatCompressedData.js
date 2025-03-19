@@ -7,8 +7,6 @@ uniform sampler2D shTexture;
 vec4 chunkDataA;    // x: min_x, y: min_y, z: min_z, w: max_x
 vec4 chunkDataB;    // x: max_y, y: max_z, z: scale_min_x, w: scale_min_y
 vec4 chunkDataC;    // x: scale_min_z, y: scale_max_x, z: scale_max_y, w: scale_max_z
-vec4 chunkDataD;    // x: min_r, y: min_g, z: min_b, w: max_r
-vec4 chunkDataE;    // x: max_g, y: max_b, z: unused, w: unused
 uvec4 packedData;   // x: position bits, y: rotation bits, z: scale bits, w: color bits
 
 vec3 unpack111011(uint bits) {
@@ -71,8 +69,6 @@ vec3 readCenter(SplatSource source) {
     chunkDataA = texelFetch(chunkTexture, chunkUV, 0);
     chunkDataB = texelFetch(chunkTexture, chunkUV + ivec2(1, 0), 0);
     chunkDataC = texelFetch(chunkTexture, chunkUV + ivec2(2, 0), 0);
-    chunkDataD = texelFetch(chunkTexture, chunkUV + ivec2(3, 0), 0);
-    chunkDataE = texelFetch(chunkTexture, chunkUV + ivec2(4, 0), 0);
     packedData = texelFetch(packedTexture, source.uv, 0);
 
     return mix(chunkDataA.xyz, vec3(chunkDataA.w, chunkDataB.xy), unpack111011(packedData.x));
@@ -90,15 +86,7 @@ vec3 colors[8] = vec3[](
 );
 
 vec4 readColor(in SplatSource source) {
-    vec4 r = unpack8888(packedData.w);
-
-    // add spherical harmonics
-    vec3 shData = texelFetch(shTexture, source.uv, 0).xyz * 2.0 - 1.0;
-
-    return vec4(mix(chunkDataD.xyz, vec3(chunkDataD.w, chunkDataE.xy), r.rgb) + shData, r.w);
-
-    // color chunks
-    // return vec4(colors[int(source.id / 256u) % 8], r.w);
+    return texelFetch(shTexture, source.uv, 0) * vec4(2.0, 2.0, 2.0, 1.0);
 }
 
 vec4 getRotation() {
