@@ -2,6 +2,7 @@ export default /* glsl */`
 
 #ifdef DITHER
     varying float id;
+    uniform int frameIndex;
     uniform sampler2D blueNoiseTex32;
 #endif
 
@@ -54,9 +55,9 @@ void main(void) {
         }
 
         #ifdef DITHER
-            ivec2 uv = (ivec2(gl_FragCoord.xy) + ivec2(id, id)) % 32;
-            int comp = int(id) % 4;
-            float noise = texelFetch(blueNoiseTex32, uv, 0)[comp];
+            ivec2 uv = ivec2(gl_FragCoord.xy) + ivec2(id, -id) * 3 + ivec2(-frameIndex, frameIndex) * 5;
+            int comp = (int(id) + frameIndex) % 4;
+            float noise = texelFetch(blueNoiseTex32, uv & 31, 0)[comp];
             if (alpha < noise)
                 discard;
             gl_FragColor = vec4(gaussianColor.xyz, 1.0);

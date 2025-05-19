@@ -404,6 +404,8 @@ class Renderer {
             camera.frustum.setFromMat4(viewProjMat);
         }
 
+        this.device.scope.resolve('frameIndex').setValue(this.device.renderVersion);
+
         this.tbnBasis.setValue(flipY ? -1 : 1);
 
         // Near and far clip values
