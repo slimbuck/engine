@@ -4,7 +4,7 @@ export default /* glsl */`
 varying mediump vec2 gaussianUV;
 varying mediump vec4 gaussianColor;
 
-#ifndef DITHER_NONE
+#ifdef DITHER
     varying float id;
 #endif
 
@@ -59,7 +59,7 @@ void main(void) {
     gaussianUV = corner.uv;
     gaussianColor = vec4(prepareOutputFromGamma(max(clr.xyz, 0.0)), clr.w);
 
-    #ifndef DITHER_NONE
+    #ifdef DITHER
         id = float(source.id);
     #endif
 

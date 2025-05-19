@@ -10,7 +10,7 @@ import { shaderChunks } from '../shader-lib/chunks-glsl/chunks.js';
  * @property {string} [fragment] - Custom fragment shader, see SPLAT MANY example.
  * @property {string[]} [defines] - List of shader defines.
  * @property {Object<string, string>} [chunks] - Custom shader chunks.
- * @property {string} [dither] - Opacity dithering enum.
+ * @property {boolean} [dither] - Opacity dithering enum.
  *
  * @ignore
  */
@@ -20,9 +20,6 @@ import { shaderChunks } from '../shader-lib/chunks-glsl/chunks.js';
  * @returns {ShaderMaterial} The GS material.
  */
 const createGSplatMaterial = (options = {}) => {
-
-    const ditherEnum = options.dither ?? DITHER_NONE;
-    const dither = ditherEnum !== DITHER_NONE;
 
     const material = new ShaderMaterial({
         uniqueName: 'SplatMaterial',
@@ -36,8 +33,11 @@ const createGSplatMaterial = (options = {}) => {
         }
     });
 
-    material.setDefine(`DITHER_${ditherEnum.toUpperCase()}`, '');
+    const dither = options.dither ?? true;
 
+    if (dither) {
+        material.setDefine('DITHER', true);
+    }
     material.cull = CULLFACE_NONE;
     material.blendType = dither ? BLEND_NONE : BLEND_PREMULTIPLIED;
     material.depthWrite = dither;

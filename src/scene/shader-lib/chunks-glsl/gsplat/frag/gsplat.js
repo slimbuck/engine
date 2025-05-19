@@ -1,9 +1,8 @@
 export default /* glsl */`
 
-#ifndef DITHER_NONE
-    #include "bayerPS"
-    #include "opacityDitherPS"
+#ifdef DITHER
     varying float id;
+    uniform sampler2D blueNoiseTex32;
 #endif
 
 #ifdef PICK_PASS
@@ -54,11 +53,16 @@ void main(void) {
             discard;
         }
 
-        #ifndef DITHER_NONE
-            opacityDither(alpha, id * 0.013);
+        #ifdef DITHER
+            ivec2 uv = (ivec2(gl_FragCoord.xy) + ivec2(id, id)) % 32;
+            int comp = int(id) % 4;
+            float noise = texelFetch(blueNoiseTex32, uv, 0)[comp];
+            if (alpha < noise)
+                discard;
+            gl_FragColor = vec4(gaussianColor.xyz, 1.0);
+        #else
+            gl_FragColor = vec4(gaussianColor.xyz * alpha, alpha);
         #endif
-
-        gl_FragColor = vec4(gaussianColor.xyz * alpha, alpha);
     #endif
 }
 `;
