@@ -311,9 +311,13 @@ function SortWorker() {
 class GSplatSorter extends EventHandler {
     worker;
 
-    orderTexture;
+    orderTextures;
 
     centers;
+
+    frame = 1;
+
+    gpuWritePromise = null;
 
     constructor() {
         super();
@@ -322,21 +326,34 @@ class GSplatSorter extends EventHandler {
             type: 'application/javascript'
         })));
 
-        this.worker.onmessage = (message) => {
-            const newOrder = message.data.order;
-            const oldOrder = this.orderTexture._levels[0].buffer;
+        this.worker.onmessage = async (message) => {
+            // const timenow = performance.now();
+            // previous gpu write is still pending, wait for it to finish before continuing
+            // if (this.gpuWritePromise) {
+            //     await this.gpuWritePromise;
+            //     console.log('waited for previous GPU write to finish for ', performance.now() - timenow, 'ms');
+            // }
 
-            // send vertex storage to worker to start the next frame
-            this.worker.postMessage({
-                order: oldOrder
-            }, [oldOrder]);
+            const targetTexture = this.orderTextures[this.frame % 2];
 
-            // write the new order data to gpu texture memory
-            this.orderTexture._levels[0] = new Uint32Array(newOrder);
-            this.orderTexture.upload();
+            // hack: ensure the texture is created
+            targetTexture.device.setTexture(targetTexture, 0);
 
-            // set new data directly on texture
-            this.fire('updated', message.data.count);
+            const height = Math.ceil(message.data.count / targetTexture.width);
+            const order = message.data.order;
+
+            // kick off async write of texture data
+            this.gpuWritePromise = targetTexture.write(0, 0, targetTexture.width, height, new Uint32Array(order));
+
+            // once texture data has been written, switch to using it for rendering
+            this.gpuWritePromise.then(() => {
+                this.fire('updated', message.data.count, targetTexture);
+                this.gpuWritePromise = null;
+                this.frame++;
+
+                // send vertex storage to worker to start the next frame
+                this.worker.postMessage({ order }, [order]);
+            });
         };
     }
 
@@ -345,28 +362,19 @@ class GSplatSorter extends EventHandler {
         this.worker = null;
     }
 
-    init(orderTexture, centers, chunks) {
-        this.orderTexture = orderTexture;
+    init(orderTextures, centers, chunks) {
+        this.orderTextures = orderTextures;
         this.centers = centers.slice();
 
-        // get the texture's storage buffer and make a copy
-        const orderBuffer = this.orderTexture.lock({
-            mode: TEXTURELOCK_READ
-        }).slice();
-        this.orderTexture.unlock();
-
-        // initialize order data
-        for (let i = 0; i < orderBuffer.length; ++i) {
-            orderBuffer[i] = i;
-        }
+        const buffer = new ArrayBuffer(orderTextures[0].width * orderTextures[0].height * 4);
 
         const obj = {
-            order: orderBuffer.buffer,
+            order: buffer,
             centers: centers.buffer,
             chunks: chunks?.buffer
         };
 
-        const transfer = [orderBuffer.buffer, centers.buffer].concat(chunks ? [chunks.buffer] : []);
+        const transfer = [buffer, centers.buffer].concat(chunks ? [chunks.buffer] : []);
 
         // send the initial buffer to worker
         this.worker.postMessage(obj, transfer);

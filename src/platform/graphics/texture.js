@@ -1173,6 +1173,10 @@ class Texture {
     read(x, y, width, height, options = {}) {
         return this.impl.read?.(x, y, width, height, options);
     }
+
+    write(x, y, width, height, pixels) {
+        return this.impl.write?.(x, y, width, height, pixels);
+    }
 }
 
 export { Texture };

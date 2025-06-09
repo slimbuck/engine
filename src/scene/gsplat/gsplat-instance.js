@@ -24,8 +24,8 @@ class GSplatInstance {
     /** @type {GSplatResourceBase} */
     resource;
 
-    /** @type {Texture} */
-    orderTexture;
+    /** @type {Texture[]} */
+    orderTextures;
 
     /** @type {ShaderMaterial} */
     _material;
@@ -58,11 +58,10 @@ class GSplatInstance {
         this.resource = resource;
 
         // create the order texture
-        this.orderTexture = resource.createTexture(
-            'splatOrder',
-            PIXELFORMAT_R32U,
-            resource.evalTextureSize(resource.numSplats)
-        );
+        this.orderTextures = [
+            resource.createTexture('splatOrder0', PIXELFORMAT_R32U, resource.evalTextureSize(resource.numSplats)),
+            resource.createTexture('splatOrder1', PIXELFORMAT_R32U, resource.evalTextureSize(resource.numSplats)),
+        ];
 
         if (material) {
             // material is provided
@@ -101,10 +100,13 @@ class GSplatInstance {
 
         // create sorter
         this.sorter = new GSplatSorter();
-        this.sorter.init(this.orderTexture, centers, chunks);
-        this.sorter.on('updated', (count) => {
+        this.sorter.init(this.orderTextures, centers, chunks);
+        this.sorter.on('updated', (count, orderTexture) => {
             // limit splat render count to exclude those behind the camera
             this.meshInstance.instancingCount = Math.ceil(count / resource.instanceSize);
+
+            // use the updated texture for rendering
+            this.material.setParameter('splatOrder', orderTexture);
 
             // update splat count on the material
             this.material.setParameter('numSplats', count);
@@ -150,7 +152,7 @@ class GSplatInstance {
         this.resource.configureMaterial(material);
 
         // set instance properties
-        material.setParameter('splatOrder', this.orderTexture);
+        material.setParameter('splatOrder', this.orderTextures[0]);
         material.setParameter('alphaClip', 0.3);
         material.setDefine(`DITHER_${dither ? 'BLUENOISE' : 'NONE'}`, '');
         material.cull = CULLFACE_NONE;
