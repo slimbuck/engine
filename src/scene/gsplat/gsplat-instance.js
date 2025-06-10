@@ -1,11 +1,10 @@
 import { Mat4 } from '../../core/math/mat4.js';
 import { Vec3 } from '../../core/math/vec3.js';
-import { SEMANTIC_ATTR13, SEMANTIC_POSITION, PIXELFORMAT_R32U } from '../../platform/graphics/constants.js';
+import { CULLFACE_NONE, SEMANTIC_ATTR13, SEMANTIC_POSITION, PIXELFORMAT_R32U } from '../../platform/graphics/constants.js';
 import { MeshInstance } from '../mesh-instance.js';
 import { GSplatSorter } from './gsplat-sorter.js';
 import { ShaderMaterial } from '../materials/shader-material.js';
 import { BLEND_NONE, BLEND_PREMULTIPLIED } from '../constants.js';
-import { CULLFACE_NONE } from '../../platform/graphics/constants.js';
 
 /**
  * @import { Camera } from '../camera.js'
@@ -120,16 +119,16 @@ class GSplatInstance {
     }
 
     clone() {
-        return new GSplatInstance(this.resource, this.options);
+        return new GSplatInstance(this.resource, this.material.clone());
     }
 
     /**
      * @param {ShaderMaterial} value - The material instance.
      */
     set material(value) {
-        if (this.material !== value) {
+        if (this._material !== value) {
             // set the new material
-            this.material = value;
+            this._material = value;
 
             if (this.meshInstance) {
                 this.meshInstance.material = value;
@@ -143,9 +142,9 @@ class GSplatInstance {
 
     /**
      * Configure the material with gsplat instance and resource properties.
-     * 
-     * @param {ShaderMaterial} material 
-     * @param {boolean} dither 
+     *
+     * @param {ShaderMaterial} material - The material to configure.
+     * @param {boolean} dither - Specify true to configure the material for dithered rendering (stochastic alpha).
      */
     configureMaterial(material, dither = false) {
         // allow resource to configure the material
