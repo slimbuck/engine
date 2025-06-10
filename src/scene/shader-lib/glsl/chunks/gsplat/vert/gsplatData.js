@@ -6,7 +6,7 @@ uniform highp sampler2D transformB;
 uint tAw;
 
 // read the model-space center of the gaussian
-vec3 readPosition(SplatSource source) {
+vec3 readCenter(SplatSource source) {
     // read transform data
     uvec4 tA = texelFetch(transformA, source.uv, 0);
     tAw = tA.w;
