@@ -99,7 +99,7 @@ class GSplatInstance {
 
         // create sorter
         this.sorter = new GSplatSorter();
-        this.sorter.init(this.orderTexture, centers, chunks);
+        this.sorter.init(this.orderTextures, centers, chunks);
         this.sorter.on('updated', (count) => {
             // limit splat render count to exclude those behind the camera
             this.meshInstance.instancingCount = Math.ceil(count / resource.instanceSize);
@@ -144,7 +144,7 @@ class GSplatInstance {
         this.resource.configureMaterial(material);
 
         // set instance properties
-        material.setParameter('splatOrder', this.orderTexture);
+        material.setParameter('splatOrder', this.orderTextures[0]);
         material.setParameter('alphaClip', 0.3);
         material.setDefine(`DITHER_${dither ? 'BLUENOISE' : 'NONE'}`, '');
         material.cull = CULLFACE_NONE;

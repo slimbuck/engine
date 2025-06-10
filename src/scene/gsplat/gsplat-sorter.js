@@ -1,5 +1,4 @@
 import { EventHandler } from '../../core/event-handler.js';
-import { TEXTURELOCK_READ } from '../../platform/graphics/constants.js';
 
 // sort blind set of data
 function SortWorker() {
@@ -327,12 +326,12 @@ class GSplatSorter extends EventHandler {
         })));
 
         this.worker.onmessage = async (message) => {
-            // const timenow = performance.now();
+            const order = message.data.order;
+
             // previous gpu write is still pending, wait for it to finish before continuing
-            // if (this.gpuWritePromise) {
-            //     await this.gpuWritePromise;
-            //     console.log('waited for previous GPU write to finish for ', performance.now() - timenow, 'ms');
-            // }
+            if (this.gpuWritePromise) {
+                await this.gpuWritePromise;
+            }
 
             const targetTexture = this.orderTextures[this.frame % 2];
 
@@ -340,20 +339,19 @@ class GSplatSorter extends EventHandler {
             targetTexture.device.setTexture(targetTexture, 0);
 
             const height = Math.ceil(message.data.count / targetTexture.width);
-            const order = message.data.order;
 
             // kick off async write of texture data
-            this.gpuWritePromise = targetTexture.write(0, 0, targetTexture.width, height, new Uint32Array(order));
 
             // once texture data has been written, switch to using it for rendering
-            this.gpuWritePromise.then(() => {
-                this.fire('updated', message.data.count, targetTexture);
-                this.gpuWritePromise = null;
-                this.frame++;
+            this.gpuWritePromise =
+            targetTexture.write(0, 0, targetTexture.width, height, new Uint32Array(order))
+                .then(() => {
+                    this.fire('updated', message.data.count, targetTexture);
+                    this.gpuWritePromise = null;
+                    this.frame++;
+                });
 
-                // send vertex storage to worker to start the next frame
-                this.worker.postMessage({ order }, [order]);
-            });
+            this.worker.postMessage({ order }, [order]);
         };
     }
 
