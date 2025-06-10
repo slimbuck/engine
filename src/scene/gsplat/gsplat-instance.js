@@ -23,8 +23,8 @@ class GSplatInstance {
     /** @type {GSplatResourceBase} */
     resource;
 
-    /** @type {Texture[]} */
-    orderTextures;
+    /** @type {Texture} */
+    orderTexture;
 
     /** @type {ShaderMaterial} */
     _material;
@@ -99,13 +99,10 @@ class GSplatInstance {
 
         // create sorter
         this.sorter = new GSplatSorter();
-        this.sorter.init(this.orderTextures, centers, chunks);
-        this.sorter.on('updated', (count, orderTexture) => {
+        this.sorter.init(this.orderTexture, centers, chunks);
+        this.sorter.on('updated', (count) => {
             // limit splat render count to exclude those behind the camera
             this.meshInstance.instancingCount = Math.ceil(count / resource.instanceSize);
-
-            // use the updated texture for rendering
-            this.material.setParameter('splatOrder', orderTexture);
 
             // update splat count on the material
             this.material.setParameter('numSplats', count);
@@ -116,10 +113,6 @@ class GSplatInstance {
         this.material?.destroy();
         this.meshInstance?.destroy();
         this.sorter?.destroy();
-    }
-
-    clone() {
-        return new GSplatInstance(this.resource, this.material.clone());
     }
 
     /**
@@ -134,6 +127,29 @@ class GSplatInstance {
                 this.meshInstance.material = value;
             }
         }
+    }
+
+    get material() {
+        return this._material;
+    }
+
+    /**
+     * Configure the material with gsplat instance and resource properties.
+     *
+     * @param {ShaderMaterial} material - The material to configure.
+     * @param {boolean} dither - Specify true to configure the material for dithered rendering (stochastic alpha).
+     */
+    configureMaterial(material, dither = false) {
+        // allow resource to configure the material
+        this.resource.configureMaterial(material);
+
+        // set instance properties
+        material.setParameter('splatOrder', this.orderTexture);
+        material.setParameter('alphaClip', 0.3);
+        material.setDefine(`DITHER_${dither ? 'BLUENOISE' : 'NONE'}`, '');
+        material.cull = CULLFACE_NONE;
+        material.blendType = dither ? BLEND_NONE : BLEND_PREMULTIPLIED;
+        material.depthWrite = dither;
     }
 
     get material() {
