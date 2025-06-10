@@ -802,10 +802,10 @@ class WebglTexture {
         return device.readTextureAsync(texture, x, y, width, height, options);
     }
 
-    write(x, y, width, height, pixels) {
+    write(x, y, width, height, data) {
         const { texture } = this;
         const { device } = texture;
-        return device.writeTextureAsync(texture, x, y, width, height, pixels);
+        return device.writeTextureAsync(texture, x, y, width, height, data);
     }
 }
 
