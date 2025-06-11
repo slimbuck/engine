@@ -326,16 +326,11 @@ class GSplatSorter extends EventHandler {
         })));
 
         this.worker.onmessage = async (message) => {
-            // previous gpu write is still pending, wait for it to finish before continuing
+            // wait for previous write to complete
             await this.gpuWritePromise;
 
             const { orderTexture } = this;
-
-            // hack: ensure the texture is created
-            orderTexture.device.setTexture(orderTexture, 0);
-
             const height = Math.ceil(message.data.count / orderTexture.width);
-
             const order = message.data.order;
 
             // kick off async write of texture data
