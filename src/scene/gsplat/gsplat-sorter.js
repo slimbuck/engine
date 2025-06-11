@@ -310,7 +310,7 @@ function SortWorker() {
 class GSplatSorter extends EventHandler {
     worker;
 
-    orderTextures;
+    orderTexture;
 
     centers;
 
@@ -326,31 +326,27 @@ class GSplatSorter extends EventHandler {
         })));
 
         this.worker.onmessage = async (message) => {
-            const order = message.data.order;
-
             // previous gpu write is still pending, wait for it to finish before continuing
-            if (this.gpuWritePromise) {
-                await this.gpuWritePromise;
-            }
+            await this.gpuWritePromise;
 
-            const targetTexture = this.orderTextures[this.frame % 2];
+            const { orderTexture } = this;
 
             // hack: ensure the texture is created
-            targetTexture.device.setTexture(targetTexture, 0);
+            orderTexture.device.setTexture(orderTexture, 0);
 
-            const height = Math.ceil(message.data.count / targetTexture.width);
+            const height = Math.ceil(message.data.count / orderTexture.width);
+
+            const order = message.data.order;
 
             // kick off async write of texture data
 
             // once texture data has been written, switch to using it for rendering
             this.gpuWritePromise =
-            targetTexture.write(0, 0, targetTexture.width, height, new Uint32Array(order))
-                .then(() => {
-                    this.fire('updated', message.data.count, targetTexture);
-                    this.gpuWritePromise = null;
-                    this.frame++;
-                });
-
+                orderTexture.write(0, 0, orderTexture.width, height, new Uint32Array(order))
+                    .then(() => {
+                        this.gpuWritePromise = null;
+                    });
+            this.fire('updated', message.data.count);
             this.worker.postMessage({ order }, [order]);
         };
     }
@@ -360,11 +356,11 @@ class GSplatSorter extends EventHandler {
         this.worker = null;
     }
 
-    init(orderTextures, centers, chunks) {
-        this.orderTextures = orderTextures;
+    init(orderTexture, centers, chunks) {
+        this.orderTexture = orderTexture;
         this.centers = centers.slice();
 
-        const buffer = new ArrayBuffer(orderTextures[0].width * orderTextures[0].height * 4);
+        const buffer = new ArrayBuffer(orderTexture.width * orderTexture.height * 4);
 
         const obj = {
             order: buffer,
