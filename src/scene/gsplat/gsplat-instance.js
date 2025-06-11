@@ -58,7 +58,7 @@ class GSplatInstance {
 
         // create the order texture
         this.orderTexture = resource.createTexture(
-            'splatOrder0',
+            'splatOrder',
             PIXELFORMAT_R32U,
             resource.evalTextureSize(resource.numSplats)
         );
@@ -151,10 +151,6 @@ class GSplatInstance {
         material.cull = CULLFACE_NONE;
         material.blendType = dither ? BLEND_NONE : BLEND_PREMULTIPLIED;
         material.depthWrite = dither;
-    }
-
-    get material() {
-        return this._material;
     }
 
     /**
