@@ -314,8 +314,6 @@ class GSplatSorter extends EventHandler {
 
     centers;
 
-    frame = 1;
-
     gpuWritePromise = null;
 
     constructor() {

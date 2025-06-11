@@ -57,7 +57,11 @@ class GSplatInstance {
         this.resource = resource;
 
         // create the order texture
-        this.orderTexture = resource.createTexture('splatOrder0', PIXELFORMAT_R32U, resource.evalTextureSize(resource.numSplats));
+        this.orderTexture = resource.createTexture(
+            'splatOrder0',
+            PIXELFORMAT_R32U,
+            resource.evalTextureSize(resource.numSplats)
+        );
 
         if (material) {
             // material is provided
