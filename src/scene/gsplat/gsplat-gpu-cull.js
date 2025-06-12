@@ -26,20 +26,37 @@ const cullFS = /* glsl */`
     uniform sampler2D chunkTexture;
     uniform highp uint numSplats;
 
+    bool visibleSphere(mat4 mvp, vec3 center, float radius) {
+        vec4 clipCenter = mvp * vec4(center, 1.0);
+        float clipRadius = radius * length(mvp[0].xyz);
+
+        if (clipCenter.x > clipCenter.w + clipRadius) return false;
+        if (clipCenter.x < -clipCenter.w - clipRadius) return false;
+        if (clipCenter.y > clipCenter.w + clipRadius) return false;
+        if (clipCenter.y < -clipCenter.w - clipRadius) return false;
+        if (clipCenter.z < -clipRadius) return false;
+        if (clipCenter.z > clipCenter.w + clipRadius) return false;
+        return true;
+    }
+
     void main(void) {
         ivec2 uv = ivec2(gl_FragCoord) * ivec2(5, 1);
 
+        // read chunk data
         vec4 chunkDataA = texelFetch(chunkTexture, uv, 0);
         vec4 chunkDataB = texelFetch(chunkTexture, uv + ivec2(1, 0), 0);
+        vec4 chunkDataC = texelFetch(chunkTexture, uv + ivec2(2, 0), 0);
 
-        vec3 min = chunkDataA.xyz;
-        vec3 max = vec3(chunkDataA.w, chunkDataB.xy);
-        vec3 center = (min + max) * 0.5;
+        // extract chunk details
+        vec3 chunkMin = chunkDataA.xyz;
+        vec3 chunkMax = vec3(chunkDataA.w, chunkDataB.xy);
+        vec3 scale = exp(chunkDataC.yzw);
 
-        vec4 v = (matrix_projection * matrix_view * matrix_model) * vec4(center, 1.0);
-        vec4 av = abs(v);
-
-        gl_FragColor = any(greaterThan(av.xyz, v.www)) ? vec4(0.0) : vec4(1.0);
+        gl_FragColor = visibleSphere(
+            matrix_projection * matrix_view * matrix_model,
+            (chunkMin + chunkMax) * 0.5,
+            (length(chunkMax - chunkMin) + max(scale.x, max(scale.y, scale.z)) * 0.5)
+        ) ? vec4(1.0) : vec4(0.0);
     }
 `;
 
