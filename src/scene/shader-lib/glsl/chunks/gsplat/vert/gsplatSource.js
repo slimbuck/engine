@@ -5,6 +5,8 @@ attribute uint vertex_id_attrib;        // render order base
 uniform uint numSplats;                 // total number of splats
 uniform highp usampler2D splatOrder;    // per-splat index to source gaussian
 
+uniform sampler2D cullTexture;
+
 // initialize the splat source structure
 bool initSource(out SplatSource source) {
     uint w = uint(textureSize(splatOrder, 0).x);
@@ -27,6 +29,14 @@ bool initSource(out SplatSource source) {
 
     // get the corner
     source.cornerUV = vertex_position.xy;
+
+    uint chunkW = uint(textureSize(cullTexture, 0).x);
+    uint chunkId = source.id / 256u;
+    ivec2 chunkUV = ivec2((chunkId % chunkW), chunkId / chunkW);
+
+    if (texelFetch(cullTexture, chunkUV, 0).r != 1.0) {
+        return false;
+    }
 
     return true;
 }

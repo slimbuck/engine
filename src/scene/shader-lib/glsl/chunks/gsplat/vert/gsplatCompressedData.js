@@ -42,7 +42,6 @@ vec4 unpackRotation(uint bits) {
     return vec4(a, b, c, m);
 }
 
-
 // read center
 vec3 readCenter(SplatSource source) {
     uint w = uint(textureSize(chunkTexture, 0).x) / 5u;

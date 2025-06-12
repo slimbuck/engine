@@ -2,6 +2,7 @@ import { Mat4 } from '../../core/math/mat4.js';
 import { Vec3 } from '../../core/math/vec3.js';
 import { CULLFACE_NONE, SEMANTIC_ATTR13, SEMANTIC_POSITION, PIXELFORMAT_R32U } from '../../platform/graphics/constants.js';
 import { MeshInstance } from '../mesh-instance.js';
+import { GSplatGpuCull } from './gsplat-gpu-cull.js';
 import { GSplatSorter } from './gsplat-sorter.js';
 import { ShaderMaterial } from '../materials/shader-material.js';
 import { BLEND_NONE, BLEND_PREMULTIPLIED } from '../constants.js';
@@ -34,12 +35,15 @@ class GSplatInstance {
 
     options = {};
 
-    /** @type {GSplatSorter | null} */
+    /** @type {GSplatSorter|null} */
     sorter = null;
 
     lastCameraPosition = new Vec3();
 
     lastCameraDirection = new Vec3();
+
+    /** @type {GSplatGpuCull|null} */
+    gsplatGpuCull = null;
 
     /**
      * List of cameras this instance is visible for. Updated every frame by the renderer.
@@ -108,12 +112,16 @@ class GSplatInstance {
             // update splat count on the material
             this.material.setParameter('numSplats', count);
         });
+
+        // culler
+        this.gsplatGpuCull = new GSplatGpuCull(resource.device, this);
     }
 
     destroy() {
         this.material?.destroy();
         this.meshInstance?.destroy();
         this.sorter?.destroy();
+        this.gsplatGpuCull?.destroy();
     }
 
     /**
@@ -203,6 +211,10 @@ class GSplatInstance {
             // TODO: extend to support multiple cameras
             const camera = this.cameras[0];
             this.sort(camera._node);
+
+            if (!window.nocull) {
+                this.gsplatGpuCull?.update(camera._node, this.meshInstance.node.getWorldTransform());
+            }
 
             // we get new list of cameras each frame
             this.cameras.length = 0;
