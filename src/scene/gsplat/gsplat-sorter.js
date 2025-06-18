@@ -341,20 +341,17 @@ class GSplatSorter extends EventHandler {
             // wait for previous write to complete
             await this.gpuWritePromise;
 
-            const { orderTexture } = this;
             const msgData = message.data ?? message;
             const order = msgData.order;
 
-            // kick off async write of texture data
-
-            // once texture data has been written, switch to using it for rendering
-            this.gpuWritePromise =
-                orderTexture.write(0, 0, orderTexture.width, orderTexture.height, new Uint32Array(order))
-                    .then(() => {
-                        this.gpuWritePromise = null;
-                        this.fire('updated', this.centers.length / 3); // message.data.count);
-                    });
-            this.worker.postMessage({ order }, [order]);
+            // write new order to gpu asynchronously
+            const { orderTexture } = this;
+            this.gpuWritePromise = orderTexture.write(0, 0, orderTexture.width, orderTexture.height, new Uint32Array(order))
+            .then(() => {
+                this.fire('updated', this.centers.length / 3);
+                // this.fire('updated', message.data.count);
+                this.worker.postMessage({ order }, [order]);
+            });
         });
     }
 
