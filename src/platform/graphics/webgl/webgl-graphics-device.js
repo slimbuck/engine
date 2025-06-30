@@ -81,6 +81,8 @@ class WebglGraphicsDevice extends GraphicsDevice {
      */
     _defaultFramebufferChanged = false;
 
+    _asyncWaits = [];
+
     /**
      * Creates a new WebglGraphicsDevice instance.
      *
@@ -1138,6 +1140,9 @@ class WebglGraphicsDevice extends GraphicsDevice {
         this.updateBackbuffer();
 
         this.gpuProfiler.frameStart();
+
+        // check async waits
+        this._asyncWaits = this._asyncWaits.filter(test => test());
     }
 
     frameEnd() {
@@ -1938,28 +1943,39 @@ class WebglGraphicsDevice extends GraphicsDevice {
         gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     }
 
-    clientWaitAsync(flags, interval_ms) {
-        const gl = this.gl;
+    clientWaitAsync(flags) {
+        const { gl } = this;
         const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
         this.submit();
 
-        return new Promise((resolve, reject) => {
-            function test() {
-                const res = gl.clientWaitSync(sync, flags, 0);
-                if (res === gl.TIMEOUT_EXPIRED) {
-                    // check again in a while
-                    setTimeout(test, interval_ms);
-                } else {
-                    gl.deleteSync(sync);
-                    if (res === gl.WAIT_FAILED) {
-                        reject(new Error('webgl clientWaitSync sync failed'));
-                    } else {
-                        resolve();
-                    }
-                }
-            }
-            test();
+        // return a promise
+        let resolve, reject;
+        const promise = new Promise((resolve_, reject_) => {
+            resolve = resolve_;
+            reject = reject_;
         });
+
+        const test = () => {
+            const res = gl.clientWaitSync(sync, flags, 0);
+            if (res === gl.TIMEOUT_EXPIRED) {
+                // not ready
+                return true;
+            }
+
+            gl.deleteSync(sync);
+            if (res === gl.WAIT_FAILED) {
+                reject(new Error('webgl clientWaitSync sync failed'));
+            } else {
+                resolve();
+            }
+            return false;
+        };
+
+        if (test) {
+            this._asyncWaits.push(test);
+        }
+
+        return promise;
     }
 
     /**

@@ -26,9 +26,6 @@ class GSplatResourceBase {
     /** @type {GSplatData | GSplatCompressedData | GSplatSogsData} */
     gsplatData;
 
-    /** @type {Float32Array} */
-    centers;
-
     /** @type {BoundingBox} */
     aabb;
 
@@ -41,9 +38,6 @@ class GSplatResourceBase {
     constructor(device, gsplatData) {
         this.device = device;
         this.gsplatData = gsplatData;
-
-        this.centers = new Float32Array(gsplatData.numSplats * 3);
-        gsplatData.getCenters(this.centers);
 
         this.aabb = new BoundingBox();
         gsplatData.calcAabb(this.aabb);
