@@ -30,11 +30,14 @@ class GSplatSorter extends EventHandler {
             const { targetTexture, position, direction } = this;
             const { width, height } = targetTexture;
 
-            this.gpuWritePromise = targetTexture.write(0, 0, width, height, new Uint32Array(order))
-            .then(() => {
-                this.fire('updated', count);
-                this.gpuWritePromise = null;
-            });
+            // this.gpuWritePromise = targetTexture.write(0, 0, width, height, new Uint32Array(order))
+            // .then(() => {
+            //     this.fire('updated', count);
+            //     this.gpuWritePromise = null;
+            // });
+
+            targetTexture.write(0, 0, width, height, new Uint32Array(order))
+            this.fire('updated', count);
 
             const toPost = { order };
 

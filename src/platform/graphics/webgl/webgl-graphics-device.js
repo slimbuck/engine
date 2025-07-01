@@ -1134,15 +1134,19 @@ class WebglGraphicsDevice extends GraphicsDevice {
         return true;
     }
 
+    update() {
+        super.update();
+
+        // check async waits
+        this._asyncWaits = this._asyncWaits.filter(test => test());
+    }
+
     frameStart() {
         super.frameStart();
 
         this.updateBackbuffer();
 
         this.gpuProfiler.frameStart();
-
-        // check async waits
-        this._asyncWaits = this._asyncWaits.filter(test => test());
     }
 
     frameEnd() {
