@@ -36,12 +36,13 @@ class GSplatSorter extends EventHandler {
             //     this.gpuWritePromise = null;
             // });
 
-            targetTexture.write(0, 0, width, height, new Uint32Array(order))
+            targetTexture.write(0, 0, width, height, new Uint32Array(order));
+
             this.fire('updated', count);
 
-            const toPost = { order };
+            const toPost = { orderBuffer: order };
 
-            // if dirty, we need to send the camera position and direction
+            // if dirty flag is set we need to send the camera position and direction
             if (this.dirty) {
                 toPost.viewPos = { x: position.x, y: position.y, z: position.z };
                 toPost.viewDir = { x: direction.x, y: direction.y, z: direction.z };
