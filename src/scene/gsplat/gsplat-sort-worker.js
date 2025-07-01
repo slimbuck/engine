@@ -69,9 +69,6 @@ function SortWorker() {
     const update = () => {
         const { orderBuffers, orderBufferSize, centers, chunks, mapping, viewPos, viewDir, boundMin, boundMax } = globals;
 
-        const px = viewPos.x;
-        const py = viewPos.y;
-        const pz = viewPos.z;
         const dx = viewDir.x;
         const dy = viewDir.y;
         const dz = viewDir.z;
@@ -182,6 +179,9 @@ function SortWorker() {
         }
 
         // Find splat with distance 0 to limit rendering behind the camera
+        const px = viewPos.x;
+        const py = viewPos.y;
+        const pz = viewPos.z;
         const cameraDist = px * dx + py * dy + pz * dz;
         const dist = (i) => {
             let o = order[i] * 3;
