@@ -2009,7 +2009,7 @@ class WebglGraphicsDevice extends GraphicsDevice {
         gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
 
         // async wait for previous read to finish
-        await this.clientWaitAsync(0, 16);
+        await this.clientWaitAsync(0);
 
         // copy the resulting data once it's arrived
         gl.bindBuffer(gl.PIXEL_PACK_BUFFER, buf);
@@ -2050,25 +2050,17 @@ class WebglGraphicsDevice extends GraphicsDevice {
         });
     }
 
-    async writeTextureAsync(texture, x, y, width, height, data) {
+    async writeTexture(texture, x, y, width, height, data) {
         const gl = this.gl;
         const impl = texture.impl;
         const format = impl?._glFormat ?? gl.RGBA;
         const pixelType = impl?._glPixelType ?? gl.UNSIGNED_BYTE;
+        const mipLevel = 0;
 
-        // create temporary (gpu-side) buffer and copy data into it
-        const buf = gl.createBuffer();
-        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, buf);
-        gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STREAM_DRAW);
-        gl.bindTexture(gl.TEXTURE_2D, impl._glTexture);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, format, pixelType, 0);
-        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+        gl.texSubImage2D(gl.TEXTURE_2D, mipLevel, x, y, width, height, format, pixelType, data);
 
         texture._needsUpload = false;
         texture._mipmapsUploaded = false;
-
-        // async wait for previous read to finish
-        await this.clientWaitAsync(0, 16);
     }
 
     /**

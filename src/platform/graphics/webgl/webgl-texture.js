@@ -807,7 +807,7 @@ class WebglTexture {
         const { device } = texture;
         // ensure texture is created and bound
         device.setTexture(texture, 0);
-        return device.writeTextureAsync(texture, x, y, width, height, data);
+        return device.writeTexture(texture, x, y, width, height, data);
     }
 }
 

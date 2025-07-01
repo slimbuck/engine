@@ -9,9 +9,6 @@ class GSplatSorter extends EventHandler {
     /** @type {Texture} */
     targetTexture = null;
 
-    /** @type {Promise|null} */
-    gpuWritePromise = null;
-
     position = new Vec3(Infinity);
     direction = new Vec3(Infinity);
 
@@ -21,22 +18,14 @@ class GSplatSorter extends EventHandler {
         super();
 
         const handler = async (message) => {
-            // wait for previous write to complete
-            await this.gpuWritePromise;
-
             const msgData = message.data ?? message;
             const { order, count } = msgData;
 
             const { targetTexture, position, direction } = this;
-            const { width, height } = targetTexture;
+            const { width } = targetTexture;
+            const height = Math.ceil(count / width);
 
-            // this.gpuWritePromise = targetTexture.write(0, 0, width, height, new Uint32Array(order))
-            // .then(() => {
-            //     this.fire('updated', count);
-            //     this.gpuWritePromise = null;
-            // });
-
-            targetTexture.write(0, 0, width, height, new Uint32Array(order));
+            targetTexture.write(0, 0, width, height, new Uint32Array(order, 0, width * height));
 
             this.fire('updated', count);
 
