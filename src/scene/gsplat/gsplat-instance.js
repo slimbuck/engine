@@ -25,9 +25,6 @@ class GSplatInstance {
     /** @type {GSplatResourceBase} */
     resource;
 
-    /** @type {Texture} */
-    orderTexture;
-
     /** @type {ShaderMaterial} */
     _material;
 
@@ -62,20 +59,11 @@ class GSplatInstance {
      */
     constructor(resource, options = {}) {
         this.resource = resource;
-
-        // create the order texture
-        this.orderTexture = resource.createTexture(
-            'splatOrder',
-            PIXELFORMAT_R32U,
-            resource.evalTextureSize(resource.numSplats)
-        );
+\\
 
         if (options.material) {
             // material is provided
             this._material = options.material;
-
-            // patch splat order
-            this._material.setParameter('splatOrder', this.orderTexture);
         } else {
             // construct the material
             this._material = new ShaderMaterial({
@@ -109,15 +97,18 @@ class GSplatInstance {
         const centers = new Float32Array(numSplats * 3);
         resource.gsplatData.getCenters(centers);
 
+        const size = resource.evalTextureSize(resource.numSplats);
+
         // create sorter
-        this.sorter = new GSplatSorter();
-        this.sorter.init(this.orderTexture, centers);
-        this.sorter.on('updated', (count) => {
+        this.sorter = new GSplatSorter(resource.device);
+        this.sorter.init(size, centers);
+        this.sorter.on('updated', (count, orderTexture) => {
             // limit splat render count to exclude those behind the camera
             this.meshInstance.instancingCount = Math.ceil(count / resource.instanceSize);
 
             // update splat count on the material
             this.material.setParameter('numSplats', count);
+            this.material.setParameter('splatOrder', orderTexture);
         });
 
         // configure sogs sh resolve
@@ -140,7 +131,7 @@ class GSplatInstance {
             this._material = value;
 
             // patch order texture
-            this._material.setParameter('splatOrder', this.orderTexture);
+            // this._material.setParameter('splatOrder', this.orderTexture);
 
             if (this.meshInstance) {
                 this.meshInstance.material = value;
@@ -165,7 +156,6 @@ class GSplatInstance {
 
         // set instance properties
         material.setParameter('numSplats', 0);
-        material.setParameter('splatOrder', this.orderTexture);
         material.setParameter('alphaClip', 0.3);
         material.setDefine(`DITHER_${options.dither ? 'BLUENOISE' : 'NONE'}`, '');
         material.cull = CULLFACE_NONE;

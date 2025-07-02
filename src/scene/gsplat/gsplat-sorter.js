@@ -2,44 +2,36 @@ import { Vec3 } from '../../core/math/vec3.js';
 import { EventHandler } from '../../core/event-handler.js';
 import { platform } from '../../core/platform.js';
 import { SortWorker } from './gsplat-sort-worker.js';
+import { Texture } from '../../platform/graphics/texture.js';
+import { PIXELFORMAT_R32U } from '../../platform/graphics/constants.js';
+import { getApplication } from '../../framework/globals.js';
 
 class GSplatSorter extends EventHandler {
     worker;
 
-    /** @type {Texture} */
-    targetTexture = null;
+    device = null;
 
+    cameraDirty = false;
     position = new Vec3(Infinity);
     direction = new Vec3(Infinity);
 
-    dirty = false;
+    order = null;
+    newOrder = null;
+    count = 0;
+    fence = null;
+    fenceCount = 0;
+    index = 0;
+    waiting = false;
 
-    constructor() {
+    constructor(device) {
         super();
 
         const handler = async (message) => {
             const msgData = message.data ?? message;
             const { order, count } = msgData;
 
-            const { targetTexture, position, direction } = this;
-            const { width } = targetTexture;
-            const height = Math.ceil(count / width);
-
-            targetTexture.write(0, 0, width, height, new Uint32Array(order, 0, width * height));
-
-            this.fire('updated', count);
-
-            const toPost = { orderBuffer: order };
-
-            // if dirty flag is set we need to send the camera position and direction
-            if (this.dirty) {
-                toPost.viewPos = { x: position.x, y: position.y, z: position.z };
-                toPost.viewDir = { x: direction.x, y: direction.y, z: direction.z };
-                this.dirty = false;
-            }
-
-            // return the order buffer
-            this.worker.postMessage(toPost, [order]);
+            this.newOrder = order;
+            this.count = count;
         };
 
         const workerSource = `(${SortWorker.toString()})()`;
@@ -57,6 +49,52 @@ class GSplatSorter extends EventHandler {
             })));
             this.worker.addEventListener('message', handler);
         }
+
+        getApplication().on('postrender', () => {
+            const { newOrder, waiting, fence } = this;
+
+            // wait for fence to complete, return if it's still busy
+            if (fence) {
+                this.fenceCount++;
+                if (fence() === null) {
+                    return;
+                }
+                console.log(`waited ${this.fenceCount}`);
+                this.fence = null;
+            }
+
+            if (waiting) {
+                const { device } = this;
+
+                // we've rendered with the new texture, create a fence so we know it's active
+                this.waiting = false;
+                this.fence = device.createFence();
+                this.fenceCount = 0;
+            } else if (newOrder) {
+                const { count, size, textures, index } = this;
+
+                // upload texture data
+                const width = size.x;
+                const height = Math.ceil(count / width);
+                textures[index].write(0, 0, width, height, new Uint32Array(newOrder, 0, width * height));
+
+                // activate the new texture
+                this.fire('updated', count, textures[index]);
+
+                // double buffered
+                this.index = 1 - index;
+
+                // signal 1 frame delay
+                this.waiting = true;
+                this.order = newOrder;
+                this.newOrder = null;
+
+                // send the buffer back to the worker
+                this.send();
+            }
+        });
+
+        this.device = device;
     }
 
     destroy() {
@@ -64,18 +102,26 @@ class GSplatSorter extends EventHandler {
         this.worker = null;
     }
 
-    init(targetTexture, centers, mapping) {
-        // store target texture
-        this.targetTexture = targetTexture;
+    init(size, centers, mapping) {
+        this.size = size;
+        this.order = new ArrayBuffer(4 * size.x * size.y);
+
+        // create order textures
+        this.textures = [
+            new Texture(this.device, { width: size.x, height: size.y, format: PIXELFORMAT_R32U, name: 'gsplat-order-0' }),
+            new Texture(this.device, { width: size.x, height: size.y, format: PIXELFORMAT_R32U, name: 'gsplat-order-1' }),
+        ];
 
         const obj = {
-            orderBufferSize: targetTexture.width * targetTexture.height,
+            orderBufferSize: size.x * size.y,
             centersBuffer: centers.buffer,
             mappingBuffer: mapping && mapping.buffer
         };
+
         const transfer = [
-            centers.buffer,
-            mapping?.buffer
+            obj.orderBuffer,
+            obj.centersBuffer,
+            obj.mappingBuffer
         ].filter(v => !!v);
 
         // send the initial buffer to worker
@@ -90,15 +136,26 @@ class GSplatSorter extends EventHandler {
 
         this.position.copy(pos);
         this.direction.copy(dir);
+        this.cameraDirty = true;
 
-        if (this.gpuWritePromise) {
-            this.dirty = true;
-        } else {
-            this.worker.postMessage({
-                viewPos: { x: pos.x, y: pos.y, z: pos.z },
-                viewDir: { x: dir.x, y: dir.y, z: dir.z }
-            });
+        this.send();
+    }
+
+    send() {
+        if (!this.cameraDirty || !this.order) {
+            return;
         }
+
+        const { position, direction } = this;
+
+        this.worker.postMessage({
+            orderBuffer: this.order,
+            viewPos: { x: position.x, y: position.y, z: position.z },
+            viewDir: { x: direction.x, y: direction.y, z: direction.z }
+        });
+
+        this.cameraDirty = false;
+        this.order = null;
     }
 }
 

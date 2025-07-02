@@ -1950,7 +1950,6 @@ class WebglGraphicsDevice extends GraphicsDevice {
     clientWaitAsync(flags) {
         const { gl } = this;
         const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-        this.submit();
 
         // return a promise
         let resolve, reject;
@@ -1980,6 +1979,23 @@ class WebglGraphicsDevice extends GraphicsDevice {
         }
 
         return promise;
+    }
+
+    createFence() {
+        const { gl } = this;
+        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+        return () => {
+            const res = gl.clientWaitSync(sync, 0, 0);
+            if (res === gl.TIMEOUT_EXPIRED) {
+                // not ready
+                return null;
+            }
+
+            gl.deleteSync(sync);
+
+            return res !== gl.WAIT_FAILED;
+        };
     }
 
     /**
@@ -2050,7 +2066,7 @@ class WebglGraphicsDevice extends GraphicsDevice {
         });
     }
 
-    async writeTexture(texture, x, y, width, height, data) {
+    writeTexture(texture, x, y, width, height, data) {
         const gl = this.gl;
         const impl = texture.impl;
         const format = impl?._glFormat ?? gl.RGBA;
