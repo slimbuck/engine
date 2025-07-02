@@ -59,7 +59,6 @@ class GSplatInstance {
      */
     constructor(resource, options = {}) {
         this.resource = resource;
-\\
 
         if (options.material) {
             // material is provided
