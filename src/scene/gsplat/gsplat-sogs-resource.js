@@ -19,13 +19,16 @@ class GSplatSogsResource extends GSplatResourceBase {
             }
         });
 
-        ['means', 'scales', 'sh0', 'shN'].forEach((name) => {
+        ['means', 'scales', 'sh0'].forEach((name) => {
             const v = gsplatData.meta[name];
             if (v) {
                 material.setParameter(`${name}_mins`, v.mins);
                 material.setParameter(`${name}_maxs`, v.maxs);
             }
         });
+
+        material.setParameter(`shN_mins[0]`, gsplatData.meta.shN.mins);
+        material.setParameter(`shN_maxs[0]`, gsplatData.meta.shN.maxs);
     }
 
     evalTextureSize(count) {
