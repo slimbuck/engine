@@ -3,10 +3,27 @@ import { TEXTURELOCK_READ } from '../../platform/graphics/constants.js';
 import { platform } from '../../core/platform.js';
 import { SortWorker } from './gsplat-sort-worker.js';
 
+/**
+ * @import { StorageBuffer } from '../../platform/graphics/storage-buffer.js'
+ * @import { Texture } from '../../platform/graphics/texture.js'
+ */
+
 class GSplatSorter extends EventHandler {
     worker;
 
-    orderTexture;
+    /** @type {Texture|null} */
+    orderTexture = null;
+
+    /** @type {StorageBuffer|null} */
+    orderBuffer = null;
+
+    /**
+     * CPU-side buffer tracking for the storage buffer path. Holds the ArrayBuffer
+     * currently owned by this side (not the worker) so it can be swapped back.
+     *
+     * @type {ArrayBuffer|null}
+     */
+    _orderData = null;
 
     centers;
 
@@ -25,18 +42,24 @@ class GSplatSorter extends EventHandler {
             }
 
             const newOrder = msgData.order;
-            const oldOrder = this.orderTexture._levels[0].buffer;
 
-            // send vertex storage to worker to start the next frame
-            this.worker.postMessage({
-                order: oldOrder
-            }, [oldOrder]);
+            if (this.orderBuffer) {
+                // WebGPU: storage buffer path
+                const oldOrder = this._orderData;
+                this.worker.postMessage({ order: oldOrder }, [oldOrder]);
 
-            // write the new order data to gpu texture memory
-            this.orderTexture._levels[0] = new Uint32Array(newOrder);
-            this.orderTexture.upload();
+                const data = new Uint32Array(newOrder);
+                this._orderData = newOrder;
+                this.orderBuffer.write(0, data, 0, data.length);
+            } else {
+                // WebGL: texture path
+                const oldOrder = this.orderTexture._levels[0].buffer;
+                this.worker.postMessage({ order: oldOrder }, [oldOrder]);
 
-            // set new data directly on texture
+                this.orderTexture._levels[0] = new Uint32Array(newOrder);
+                this.orderTexture.markForUpload();
+            }
+
             this.fire('updated', msgData.count);
         };
 
@@ -60,30 +83,39 @@ class GSplatSorter extends EventHandler {
         this.worker = null;
     }
 
-    init(orderTexture, centers, chunks) {
+    /**
+     * @param {Texture|null} orderTexture - The order texture (WebGL path).
+     * @param {StorageBuffer|null} orderBuffer - The order storage buffer (WebGPU path).
+     * @param {number} numElements - Total number of splat elements.
+     * @param {Float32Array} centers - Splat center positions.
+     * @param {Uint32Array} [chunks] - Optional chunk data.
+     */
+    init(orderTexture, orderBuffer, numElements, centers, chunks) {
         this.orderTexture = orderTexture;
+        this.orderBuffer = orderBuffer;
         this.centers = centers.slice();
 
-        // get the texture's storage buffer and make a copy
-        const orderBuffer = this.orderTexture.lock({
-            mode: TEXTURELOCK_READ
-        }).slice();
-        this.orderTexture.unlock();
+        let orderData;
+        if (orderTexture) {
+            orderData = orderTexture.lock({ mode: TEXTURELOCK_READ }).slice();
+            orderTexture.unlock();
+        } else {
+            orderData = new Uint32Array(numElements);
+            this._orderData = new ArrayBuffer(numElements * 4);
+        }
 
-        // initialize order data
-        for (let i = 0; i < orderBuffer.length; ++i) {
-            orderBuffer[i] = i;
+        for (let i = 0; i < orderData.length; ++i) {
+            orderData[i] = i;
         }
 
         const obj = {
-            order: orderBuffer.buffer,
+            order: orderData.buffer,
             centers: centers.buffer,
             chunks: chunks?.buffer
         };
 
-        const transfer = [orderBuffer.buffer, centers.buffer].concat(chunks ? [chunks.buffer] : []);
+        const transfer = [orderData.buffer, centers.buffer].concat(chunks ? [chunks.buffer] : []);
 
-        // send the initial buffer to worker
         this.worker.postMessage(obj, transfer);
     }
 

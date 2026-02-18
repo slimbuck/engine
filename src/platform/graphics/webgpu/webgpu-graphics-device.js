@@ -198,6 +198,13 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
      */
     destroy() {
 
+        this._stagingBuffers?.forEach((pair) => {
+            pair[0].gpuBuffer.destroy();
+            pair[1].gpuBuffer.destroy();
+        });
+        this._stagingBuffers = null;
+        this._pendingStagingMaps = null;
+
         this.clearRenderer.destroy();
         this.clearRenderer = null;
 
@@ -1121,6 +1128,22 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
             this.dynamicBuffers.onCommandBuffersSubmitted();
         }
 
+        // re-map any staging buffers that were used since the last submit, now that the
+        // commands referencing them have been submitted to the GPU queue
+        const pendingMaps = this._pendingStagingMaps;
+        if (pendingMaps?.length > 0) {
+            for (let i = 0; i < pendingMaps.length; i++) {
+                const entry = pendingMaps[i];
+                entry.gpuBuffer.mapAsync(GPUMapMode.WRITE).then(() => {
+                    entry.mappedRange = entry.gpuBuffer.getMappedRange();
+                    entry.mapped = true;
+                }).catch(() => {
+                    // buffer was destroyed before mapping completed
+                });
+            }
+            pendingMaps.length = 0;
+        }
+
         // destroy deferred resources after submit to ensure they're no longer referenced
         const deferredDestroys = this._deferredDestroys;
         if (deferredDestroys.length > 0) {
@@ -1288,7 +1311,95 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
     writeStorageBuffer(storageBuffer, bufferOffset = 0, data, dataOffset = 0, size) {
         Debug.assert(storageBuffer.buffer);
         Debug.assert(data);
-        this.wgpu.queue.writeBuffer(storageBuffer.buffer, bufferOffset, data, dataOffset, size);
+
+        const bytesPerElement = data.BYTES_PER_ELEMENT ?? 1;
+        const srcByteOffset = dataOffset * bytesPerElement;
+        const byteSize = size !== undefined ? size * bytesPerElement : data.byteLength - srcByteOffset;
+
+        const STAGING_THRESHOLD = 256 * 1024;
+
+        if (byteSize >= STAGING_THRESHOLD) {
+
+            // Large writes use staging buffers with mappedAtCreation so the data goes through
+            // shared memory instead of IPC, and the copy is batched into the same queue.submit()
+            // as the render pass. Two staging buffers are maintained per destination to avoid
+            // per-write allocation: while one is in flight on the GPU, the other is mapped for
+            // CPU writes. Re-mapping happens after submit() via mapAsync.
+            const cache = this._stagingBuffers ??= new Map();
+            let pair = cache.get(storageBuffer);
+
+            if (!pair || pair[0].size < byteSize) {
+                // first use or size changed - create a new pair
+                if (pair) {
+                    pair[0].gpuBuffer.destroy();
+                    pair[1].gpuBuffer.destroy();
+                }
+                pair = [
+                    this._createStagingEntry(byteSize),
+                    this._createStagingEntry(byteSize)
+                ];
+                cache.set(storageBuffer, pair);
+            }
+
+            // pick the first mapped entry, or fall back to per-use allocation
+            const entry = pair[0].mapped ? pair[0] : pair[1].mapped ? pair[1] : null;
+
+            if (entry) {
+                const mapped = new Uint8Array(entry.mappedRange);
+                const srcBytes = new Uint8Array(data.buffer ?? data, (data.byteOffset ?? 0) + srcByteOffset, byteSize);
+                mapped.set(srcBytes);
+
+                entry.gpuBuffer.unmap();
+                entry.mapped = false;
+
+                const commandEncoder = this.getCommandEncoder();
+                commandEncoder.copyBufferToBuffer(entry.gpuBuffer, 0, storageBuffer.buffer, bufferOffset, byteSize);
+
+                // schedule re-mapping after the next submit()
+                const pendingMaps = this._pendingStagingMaps ??= [];
+                pendingMaps.push(entry);
+            } else {
+                // both buffers still in flight - fall back to a temporary staging buffer
+                const stagingBuffer = this.wgpu.createBuffer({
+                    size: byteSize,
+                    usage: GPUBufferUsage.COPY_SRC,
+                    mappedAtCreation: true
+                });
+
+                const mapped = new Uint8Array(stagingBuffer.getMappedRange());
+                const srcBytes = new Uint8Array(data.buffer ?? data, (data.byteOffset ?? 0) + srcByteOffset, byteSize);
+                mapped.set(srcBytes);
+
+                stagingBuffer.unmap();
+
+                const commandEncoder = this.getCommandEncoder();
+                commandEncoder.copyBufferToBuffer(stagingBuffer, 0, storageBuffer.buffer, bufferOffset, byteSize);
+
+                this.deferDestroy(stagingBuffer);
+            }
+
+        } else {
+            this.wgpu.queue.writeBuffer(storageBuffer.buffer, bufferOffset, data, dataOffset, size);
+        }
+    }
+
+    /**
+     * @param {number} byteSize - The size of the staging buffer in bytes.
+     * @returns {{gpuBuffer: GPUBuffer, size: number, mapped: boolean, mappedRange: ArrayBuffer}} The staging entry.
+     * @private
+     */
+    _createStagingEntry(byteSize) {
+        const gpuBuffer = this.wgpu.createBuffer({
+            size: byteSize,
+            usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.MAP_WRITE,
+            mappedAtCreation: true
+        });
+        return {
+            gpuBuffer,
+            size: byteSize,
+            mapped: true,
+            mappedRange: gpuBuffer.getMappedRange()
+        };
     }
 
     /**
