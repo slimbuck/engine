@@ -26,10 +26,11 @@ class WebgpuBuffer {
     destroy(device) {
         if (this.buffer) {
             // release any cached staging buffers for this storage buffer
-            const pair = device._stagingBuffers?.get(this);
-            if (pair) {
-                pair[0].gpuBuffer.destroy();
-                pair[1].gpuBuffer.destroy();
+            const entries = device._stagingBuffers?.get(this);
+            if (entries) {
+                for (let i = 0; i < entries.length; i++) {
+                    entries[i].gpuBuffer.destroy();
+                }
                 device._stagingBuffers.delete(this);
             }
 

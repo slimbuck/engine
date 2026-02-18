@@ -46,6 +46,9 @@ const _indirectEntryByteSize = 5 * 4;
 // size of indirect dispatch entry in bytes, 3 x 32bit (x, y, z workgroup counts)
 const _indirectDispatchEntryByteSize = 3 * 4;
 
+// Number of persistent staging buffers used for large storage uploads.
+const storageStagingBufferCount = 3;
+
 class WebgpuGraphicsDevice extends GraphicsDevice {
     /**
      * Array of GPU resources pending destruction. Resources are destroyed after the current
@@ -198,9 +201,10 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
      */
     destroy() {
 
-        this._stagingBuffers?.forEach((pair) => {
-            pair[0].gpuBuffer.destroy();
-            pair[1].gpuBuffer.destroy();
+        this._stagingBuffers?.forEach((entries) => {
+            for (let i = 0; i < entries.length; i++) {
+                entries[i].gpuBuffer.destroy();
+            }
         });
         this._stagingBuffers = null;
         this._pendingStagingMaps = null;
@@ -1319,30 +1323,37 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
         const STAGING_THRESHOLD = 256 * 1024;
 
         if (byteSize >= STAGING_THRESHOLD) {
-
             // Large writes use staging buffers with mappedAtCreation so the data goes through
             // shared memory instead of IPC, and the copy is batched into the same queue.submit()
-            // as the render pass. Two staging buffers are maintained per destination to avoid
-            // per-write allocation: while one is in flight on the GPU, the other is mapped for
-            // CPU writes. Re-mapping happens after submit() via mapAsync.
+            // as the render pass. A small ring of staging buffers is maintained per destination
+            // to avoid per-write allocation: while some are in flight on the GPU, another can
+            // remain mapped for CPU writes. Re-mapping happens after submit() via mapAsync.
             const cache = this._stagingBuffers ??= new Map();
-            let pair = cache.get(storageBuffer);
+            let entries = cache.get(storageBuffer);
 
-            if (!pair || pair[0].size < byteSize) {
-                // first use or size changed - create a new pair
-                if (pair) {
-                    pair[0].gpuBuffer.destroy();
-                    pair[1].gpuBuffer.destroy();
+            const stagingBufferCount = storageStagingBufferCount;
+            if (!entries || entries[0].size < byteSize || entries.length !== stagingBufferCount) {
+                // first use or size changed - create a new ring
+                if (entries) {
+                    for (let i = 0; i < entries.length; i++) {
+                        entries[i].gpuBuffer.destroy();
+                    }
                 }
-                pair = [
-                    this._createStagingEntry(byteSize),
-                    this._createStagingEntry(byteSize)
-                ];
-                cache.set(storageBuffer, pair);
+                entries = [];
+                for (let i = 0; i < stagingBufferCount; i++) {
+                    entries.push(this._createStagingEntry(byteSize));
+                }
+                cache.set(storageBuffer, entries);
             }
 
-            // pick the first mapped entry, or fall back to per-use allocation
-            const entry = pair[0].mapped ? pair[0] : pair[1].mapped ? pair[1] : null;
+            // pick the first mapped entry from the ring, or fall back to per-use allocation
+            let entry = null;
+            for (let i = 0; i < entries.length; i++) {
+                if (entries[i].mapped) {
+                    entry = entries[i];
+                    break;
+                }
+            }
 
             if (entry) {
                 const mapped = new Uint8Array(entry.mappedRange);
