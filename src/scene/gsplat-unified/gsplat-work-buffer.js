@@ -243,6 +243,7 @@ class GSplatWorkBuffer {
     constructor(device, format) {
         this.device = device;
         this.format = format;
+        this.useStorageOrder = device.isWebGPU;
 
         // Create streams manager and initialize with format
         this.streams = new GSplatStreams(device);
@@ -254,8 +255,8 @@ class GSplatWorkBuffer {
         // Create upload stream for non-blocking uploads
         this.uploadStream = new UploadStream(device);
 
-        // Use storage buffer on WebGPU, texture on WebGL
-        if (device.isWebGPU) {
+        // Use storage buffer unless texture order is explicitly forced on WebGPU
+        if (this.useStorageOrder) {
             this.orderBuffer = new StorageBuffer(device, 4, BUFFERUSAGE_COPY_DST);
         } else {
             this.orderTexture = new Texture(device, {
@@ -362,7 +363,7 @@ class GSplatWorkBuffer {
 
     setOrderData(data) {
         const size = this.textureSize;
-        if (this.device.isWebGPU) {
+        if (this.useStorageOrder) {
             Debug.assert(data.length <= size * size);
             this.uploadStream.upload(data, this.orderBuffer, 0, data.length);
         } else {
@@ -380,7 +381,7 @@ class GSplatWorkBuffer {
         this.colorRenderTarget.resize(textureSize, textureSize);
         this.streams.resize(textureSize, textureSize);
 
-        if (this.device.isWebGPU) {
+        if (this.useStorageOrder) {
             const newByteSize = textureSize * textureSize * 4;
             if (this.orderBuffer.byteSize < newByteSize) {
                 this.orderBuffer.destroy();

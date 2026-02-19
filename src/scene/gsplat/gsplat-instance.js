@@ -70,12 +70,13 @@ class GSplatInstance {
         this.resource = resource;
 
         const device = resource.device;
+        const useStorageOrder = device.isWebGPU;
         const dims = resource.streams.textureDimensions;
         Debug.assert(dims.x > 0 && dims.y > 0, 'Resource must have valid texture dimensions before creating instance');
 
         const numElements = dims.x * dims.y;
 
-        if (device.isWebGPU) {
+        if (useStorageOrder) {
             this.orderBuffer = new StorageBuffer(device, numElements * 4, BUFFERUSAGE_COPY_DST);
         } else {
             this.orderTexture = resource.streams.createTexture(
@@ -90,7 +91,7 @@ class GSplatInstance {
             this._material = options.material;
 
             // patch splat order and storage define
-            this._material.setDefine('STORAGE_ORDER', device.isWebGPU);
+            this._material.setDefine('STORAGE_ORDER', useStorageOrder);
             this.setMaterialOrderData(this._material);
         } else {
             // construct the material

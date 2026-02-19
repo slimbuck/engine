@@ -6,6 +6,7 @@ class CpuTimer {
         this._frameTimings = [];
         this._timings = [];
         this._prevTimings = [];
+        this._cachedTimings = [];
         this.unitsName = 'ms';
         this.decimalPlaces = 1;
 
@@ -63,9 +64,15 @@ class CpuTimer {
     }
 
     get timings() {
-        // remove the last time point from the list (which is the time spent outside
-        // of PlayCanvas)
-        return this._timings.slice(0, -1).map(v => v[1]);
+        // remove the last time point from the list (which is the time spent outside of PlayCanvas)
+        const count = Math.max(0, this._timings.length - 1);
+        if (this._cachedTimings.length !== count) {
+            this._cachedTimings.length = count;
+        }
+        for (let i = 0; i < count; i++) {
+            this._cachedTimings[i] = this._timings[i][1];
+        }
+        return this._cachedTimings;
     }
 }
 

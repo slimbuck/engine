@@ -356,6 +356,10 @@ class WebgpuTexture {
 
         if (texture._levels) {
 
+            // submit any pending command buffers before uploading, so queue operations
+            // (writeTexture / copyExternalImageToTexture) execute in the correct order
+            device.submit();
+
             // upload texture data if any
             let anyUploads = false;
             let anyLevelMissing = false;
@@ -368,6 +372,10 @@ class WebgpuTexture {
                     if (texture.cubemap) {
 
                         for (let face = 0; face < 6; face++) {
+
+                            if (!texture._levelsUpdated[0]?.[face]) {
+                                continue;
+                            }
 
                             const faceSource = mipObject[face];
                             if (faceSource) {
@@ -446,6 +454,17 @@ class WebgpuTexture {
                 device.mipmapRenderer.generate(this);
             }
 
+            // reset dirty tracking for the uploaded levels
+            if (texture._needsUpload) {
+                if (texture._cubemap) {
+                    for (let i = 0; i < 6; i++) {
+                        texture._levelsUpdated[0][i] = false;
+                    }
+                } else {
+                    texture._levelsUpdated[0] = false;
+                }
+            }
+
             // update vram stats
             if (texture._gpuSize) {
                 texture.adjustVramSizeTracking(device._vram, -texture._gpuSize);
@@ -478,18 +497,15 @@ class WebgpuTexture {
             texture: this.gpuTexture,
             mipLevel: mipLevel,
             origin: [0, 0, index],
-            aspect: 'all',  // can be: "all", "stencil-only", "depth-only"
+            aspect: 'all',
             premultipliedAlpha: this.texture._premultiplyAlpha
         };
 
         const copySize = {
-            width: this.desc.size.width,
-            height: this.desc.size.height,
-            depthOrArrayLayers: 1   // single layer
+            width: TextureUtils.calcLevelDimension(this.texture.width, mipLevel),
+            height: TextureUtils.calcLevelDimension(this.texture.height, mipLevel),
+            depthOrArrayLayers: 1
         };
-
-        // submit existing scheduled commands to the queue before copying to preserve the order
-        device.submit();
 
         // create 2d context so webgpu can upload the texture
         dummyUse(image instanceof HTMLCanvasElement && image.getContext('2d'));
@@ -554,9 +570,6 @@ class WebgpuTexture {
         } else {
             Debug.assert(false, `WebGPU does not yet support texture format ${formatInfo.name} for texture ${texture.name}`, texture);
         }
-
-        // submit existing scheduled commands to the queue before copying to preserve the order
-        device.submit();
 
         Debug.trace(TRACEID_RENDER_QUEUE, `WRITE-TEX: mip:${mipLevel} index:${index} ${this.texture.name}`);
         wgpu.queue.writeTexture(dest, data, dataLayout, size);

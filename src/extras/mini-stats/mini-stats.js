@@ -184,6 +184,21 @@ class MiniStats {
         this.vramTimingMinSize = vramTimingMinSize;
         this.vramGraphs = new Map(); // Map<statName, { graph, lastNonZeroFrame }>
 
+        // Pre-allocated stat objects reused each frame to avoid per-frame allocations
+        this._cpuStatsCache = {
+            scriptUpdate: 0,
+            scriptPostUpdate: 0,
+            animUpdate: 0,
+            physicsTime: 0,
+            renderTime: 0,
+            gsplatSort: 0
+        };
+        this._vramStatsCache = {
+            tex: 0,
+            geom: 0,
+            buffers: 0
+        };
+
         this.frameIndex = 0;
         this.textRefreshRate = options.textRefreshRate;
 
@@ -207,6 +222,7 @@ class MiniStats {
         this.cpuGraphs.clear();
         this.vramGraphs.clear();
         this.wordAtlas.destroy();
+        this.render2d.destroy();
         this.texture.destroy();
         this.div.remove();
     }
@@ -570,10 +586,8 @@ class MiniStats {
      */
     updateDiv() {
         const rect = this.device.canvas.getBoundingClientRect();
-        this.div.style.left = `${rect.left}px`;
-        this.div.style.bottom = `${window.innerHeight - rect.bottom}px`;
-        this.div.style.width = `${this.width}px`;
-        this.div.style.height = `${this.overallHeight}px`;
+        // Single cssText assignment avoids multiple style recalculations
+        this.div.style.cssText = `position:fixed;left:${rect.left}px;bottom:${window.innerHeight - rect.bottom}px;width:${this.width}px;height:${this.overallHeight}px;background:transparent;`;
     }
 
     /**
@@ -767,6 +781,24 @@ class MiniStats {
      */
     postRender() {
         if (this._enabled) {
+            // Batch all graph texture writes into a single lock/unlock cycle.
+            // This happens in postRender (after rendering completes), so device.submit()
+            // triggered by unlock→upload has no pending commands to flush.
+            const graphs = this.graphs;
+            let needsUnlock = false;
+            for (let i = 0; i < graphs.length; i++) {
+                if (graphs[i]._pendingWrite) {
+                    if (!needsUnlock) {
+                        this._lockedData = this.texture.lock();
+                        needsUnlock = true;
+                    }
+                    graphs[i].writeSample(this._lockedData);
+                }
+            }
+            if (needsUnlock) {
+                this.texture.unlock();
+            }
+
             this.render();
 
             // Update GPU pass graphs when size index meets threshold
@@ -779,28 +811,25 @@ class MiniStats {
 
             // Update CPU sub-timing graphs when size index meets threshold
             if (this._activeSizeIndex >= this.cpuTimingMinSize) {
-                const cpuStats = {
-                    scriptUpdate: this.app.stats.frame.scriptUpdate,
-                    scriptPostUpdate: this.app.stats.frame.scriptPostUpdate,
-                    animUpdate: this.app.stats.frame.animUpdate,
-                    physicsTime: this.app.stats.frame.physicsTime,
-                    renderTime: this.app.stats.frame.renderTime,
-                    gsplatSort: this.app.stats.frame.gsplatSort
-                };
-                this.updateSubStats(this.cpuGraphs, 'CPU', cpuStats, 'frame', 240);
+                const frame = this.app.stats.frame;
+                const cs = this._cpuStatsCache;
+                cs.scriptUpdate = frame.scriptUpdate;
+                cs.scriptPostUpdate = frame.scriptPostUpdate;
+                cs.animUpdate = frame.animUpdate;
+                cs.physicsTime = frame.physicsTime;
+                cs.renderTime = frame.renderTime;
+                cs.gsplatSort = frame.gsplatSort;
+                this.updateSubStats(this.cpuGraphs, 'CPU', cs, 'frame', 240);
             }
 
             // Update VRAM subcategory graphs when size index meets threshold
             if (this._activeSizeIndex >= this.vramTimingMinSize) {
                 const vram = this.app.stats.vram;
-                const vramStats = {
-                    tex: vram.tex,
-                    geom: vram.geom
-                };
-                if (this.device.isWebGPU) {
-                    vramStats.buffers = vram.buffers;
-                }
-                this.updateSubStats(this.vramGraphs, 'VRAM', vramStats, 'vram', 0);
+                const vs = this._vramStatsCache;
+                vs.tex = vram.tex;
+                vs.geom = vram.geom;
+                vs.buffers = this.device.isWebGPU ? vram.buffers : 0;
+                this.updateSubStats(this.vramGraphs, 'VRAM', vs, 'vram', 0);
             }
         }
 

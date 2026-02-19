@@ -219,9 +219,19 @@ class Render2d {
         };
 
         this.targetSize = {
-            width: device.width,
-            height: device.height
+            width: device.canvas.scrollWidth,
+            height: device.canvas.scrollHeight
         };
+
+        this._onResize = () => {
+            this.targetSize.width = this.device.canvas.scrollWidth;
+            this.targetSize.height = this.device.canvas.scrollHeight;
+        };
+        device.on('resizecanvas', this._onResize);
+    }
+
+    destroy() {
+        this.device.off('resizecanvas', this._onResize);
     }
 
     quad(x, y, w, h, u, v, uw, uh, texture, wordFlag = 0) {
@@ -259,9 +269,6 @@ class Render2d {
     startFrame() {
         this.quads = 0;
         this.prim.count = 0;
-
-        this.targetSize.width = this.device.canvas.scrollWidth;
-        this.targetSize.height = this.device.canvas.scrollHeight;
     }
 
     render(app, layer, graphTexture, wordsTexture, clr, height) {

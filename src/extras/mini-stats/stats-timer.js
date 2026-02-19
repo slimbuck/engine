@@ -4,31 +4,22 @@ class StatsTimer {
         this.app = app;
         this.values = [];
 
-        // support one or more stats and accumulate them in the graph total
-        this.statNames = statNames;
-
         this.unitsName = unitsName;
         this.decimalPlaces = decimalPlaces;
         this.multiplier = multiplier || 1;
 
-        // recursively look up properties of objects specified in a string
-        const resolve = (path, obj) => {
-            return path.split('.').reduce((prev, curr) => {
-                if (!prev) return null;
-                // handle Map objects
-                if (prev instanceof Map) {
-                    return prev.get(curr);
-                }
-                return prev[curr];
-            }, obj || this);
-        };
+        // Pre-split stat paths once at construction to avoid per-frame string allocations
+        this._statPaths = statNames.map(name => name.split('.'));
 
         app.on('frameupdate', (ms) => {
-            for (let i = 0; i < this.statNames.length; i++) {
-
-                // read specified stat from app.stats object
-                const value = resolve(this.statNames[i], this.app.stats);
-                this.values[i] = (value ?? 0) * this.multiplier;
+            for (let i = 0; i < this._statPaths.length; i++) {
+                const parts = this._statPaths[i];
+                let obj = this.app.stats;
+                for (let j = 0; j < parts.length; j++) {
+                    if (!obj) break;
+                    obj = (obj instanceof Map) ? obj.get(parts[j]) : obj[parts[j]];
+                }
+                this.values[i] = ((obj ?? 0)) * this.multiplier;
             }
         });
     }

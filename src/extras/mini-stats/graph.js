@@ -23,6 +23,7 @@ class Graph {
         this.sample = new Uint8ClampedArray(4);
         this.sample.set([0, 0, 0, 255]);
         this.needsClear = false;
+        this._pendingWrite = false;
 
         this.counter = 0;
 
@@ -72,29 +73,36 @@ class Graph {
             // .a store watermark
             this.sample[3] = this.watermark / range * 255;
 
-            // bounds check - skip if texture is too small
-            if (this.yOffset >= this.texture.height) {
-                return;
-            }
+            this._pendingWrite = true;
+        }
+    }
 
-            // write latest sample
-            const data = this.texture.lock();
+    /**
+     * Write the pending sample to the pre-locked texture data.
+     *
+     * @param {Uint8ClampedArray} data - The locked texture data buffer.
+     */
+    writeSample(data) {
+        if (!this._pendingWrite) return;
+        this._pendingWrite = false;
 
-            // clear entire row if needed (when row is newly allocated)
-            if (this.needsClear) {
-                const rowOffset = this.yOffset * this.texture.width * 4;
-                data.fill(0, rowOffset, rowOffset + this.texture.width * 4);
-                this.needsClear = false;
-            }
+        // bounds check - skip if texture is too small
+        if (this.yOffset >= this.texture.height) {
+            return;
+        }
 
-            data.set(this.sample, (this.cursor + this.yOffset * this.texture.width) * 4);
-            this.texture.unlock();
+        // clear entire row if needed (when row is newly allocated)
+        if (this.needsClear) {
+            const rowOffset = this.yOffset * this.texture.width * 4;
+            data.fill(0, rowOffset, rowOffset + this.texture.width * 4);
+            this.needsClear = false;
+        }
 
-            // update cursor position
-            this.cursor++;
-            if (this.cursor === this.texture.width) {
-                this.cursor = 0;
-            }
+        data.set(this.sample, (this.cursor + this.yOffset * this.texture.width) * 4);
+
+        this.cursor++;
+        if (this.cursor === this.texture.width) {
+            this.cursor = 0;
         }
     }
 

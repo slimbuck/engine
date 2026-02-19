@@ -61,7 +61,11 @@ fn fragmentMain(input: FragmentInput) -> FragmentOutput {
     if (targetIndex >= uniform.uActiveSplats) {
 
         // Out of bounds: write zeros using generated write functions
-        writeDataColor(vec4f(0.0));
+        #ifdef GSPLAT_COLOR_UINT
+            writeDataColor(vec4u(0u));
+        #else
+            writeDataColor(vec4f(0.0));
+        #endif
         #ifndef GSPLAT_COLOR_ONLY
             writeDataTransformA(vec4u(0u));
             writeDataTransformB(vec4u(0u));
@@ -111,7 +115,7 @@ fn fragmentMain(input: FragmentInput) -> FragmentOutput {
         modifySplatRotationScale(originalCenter, worldCenter, &worldRotation, &worldScale);
 
         // read color
-        var color = getColor();
+        var color: half4 = half4(getColor());
 
         // evaluate spherical harmonics
         #if SH_BANDS > 0
@@ -123,17 +127,31 @@ fn fragmentMain(input: FragmentInput) -> FragmentOutput {
             var scale: f32;
             readSHData(&sh, &scale);
 
-            // evaluate
-            color = vec4f(color.xyz + evalSH(&sh, dir) * scale, color.w);
+            // evaluate (SH coefficients and result are half precision)
+            color = half4(color.xyz + evalSH(&sh, dir) * half(scale), color.w);
         #endif
 
-        // Apply custom color modification
-        modifySplatColor(worldCenter, &color);
+        // user hook operates in f32
+        var colorF32 = vec4f(color);
+        modifySplatColor(worldCenter, &colorF32);
+        color = half4(colorF32);
 
-        color = vec4f(color.xyz * uniform.uColorMultiply, color.w);
+        color = half4(color.xyz * half3(uniform.uColorMultiply), color.w);
 
         // write out results using generated write functions
-        writeDataColor(color);
+        #ifdef GSPLAT_COLOR_UINT
+            // Pack RGBA as 4x half-float (16-bit) values for RGBA16U format
+            let packed_rg: u32 = pack2x16float(vec2f(color.rg));
+            let packed_ba: u32 = pack2x16float(vec2f(color.ba));
+            writeDataColor(vec4u(
+                packed_rg & 0xFFFFu,    // R as half
+                packed_rg >> 16u,       // G as half
+                packed_ba & 0xFFFFu,    // B as half
+                packed_ba >> 16u        // A as half
+            ));
+        #else
+            writeDataColor(vec4f(color));
+        #endif
         #ifndef GSPLAT_COLOR_ONLY
             // Store rotation (xyz, w derived) and scale as 6 half-floats
             writeDataTransformA(vec4u(bitcast<u32>(worldCenter.x), bitcast<u32>(worldCenter.y), bitcast<u32>(worldCenter.z), pack2x16float(worldRotation.xy)));

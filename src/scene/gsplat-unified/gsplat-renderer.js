@@ -168,7 +168,7 @@ class GSplatRenderer {
         this._injectFormatChunks();
 
         // Set defines
-        this._material.setDefine('STORAGE_ORDER', device.isWebGPU);
+        this._material.setDefine('STORAGE_ORDER', !!workBuffer.orderBuffer);
         this._material.setDefine('SH_BANDS', '0');
 
         // Set GSPLAT_COLOR_FLOAT define based on work buffer's color format
@@ -317,7 +317,7 @@ class GSplatRenderer {
 
     setOrderData() {
         // Set the appropriate order data resource based on device type
-        if (this.device.isWebGPU) {
+        if (this.workBuffer.orderBuffer) {
             this._material.setParameter('splatOrder', this.workBuffer.orderBuffer);
         } else {
             this._material.setParameter('splatOrder', this.workBuffer.orderTexture);
