@@ -356,10 +356,6 @@ class WebgpuTexture {
 
         if (texture._levels) {
 
-            // submit any pending command buffers before uploading, so queue operations
-            // (writeTexture / copyExternalImageToTexture) execute in the correct order
-            device.submit();
-
             // upload texture data if any
             let anyUploads = false;
             let anyLevelMissing = false;

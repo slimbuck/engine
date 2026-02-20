@@ -333,6 +333,12 @@ class MiniStats {
         // update opacity based on size (larger sizes have higher default opacity)
         this.opacity = value > 0 ? 0.85 : 0.7;
 
+        // enable GPU profiler only when size is large enough to display pass timings
+        const profiler = this.device.gpuProfiler;
+        if (profiler) {
+            profiler.enabled = value >= this.gpuTimingMinSize;
+        }
+
         // delete GPU pass graphs when switching below threshold
         if (value < this.gpuTimingMinSize && this.gpuPassGraphs) {
             for (const passData of this.gpuPassGraphs.values()) {
@@ -433,7 +439,6 @@ class MiniStats {
     get enabled() {
         return this._enabled;
     }
-
 
     /**
      * Create the graphs requested by the user and add them to the MiniStats instance.
@@ -781,9 +786,8 @@ class MiniStats {
      */
     postRender() {
         if (this._enabled) {
-            // Batch all graph texture writes into a single lock/unlock cycle.
-            // This happens in postRender (after rendering completes), so device.submit()
-            // triggered by unlock→upload has no pending commands to flush.
+
+            // Texture update -- lock, write samples, unlock (triggers upload)
             const graphs = this.graphs;
             let needsUnlock = false;
             for (let i = 0; i < graphs.length; i++) {
@@ -801,7 +805,7 @@ class MiniStats {
 
             this.render();
 
-            // Update GPU pass graphs when size index meets threshold
+            // Sub-stats -- GPU pass, CPU timing, VRAM graph management
             if (this._activeSizeIndex >= this.gpuTimingMinSize) {
                 const gpuStats = this.app.stats.gpu;
                 if (gpuStats) {
@@ -809,7 +813,6 @@ class MiniStats {
                 }
             }
 
-            // Update CPU sub-timing graphs when size index meets threshold
             if (this._activeSizeIndex >= this.cpuTimingMinSize) {
                 const frame = this.app.stats.frame;
                 const cs = this._cpuStatsCache;
@@ -822,7 +825,6 @@ class MiniStats {
                 this.updateSubStats(this.cpuGraphs, 'CPU', cs, 'frame', 240);
             }
 
-            // Update VRAM subcategory graphs when size index meets threshold
             if (this._activeSizeIndex >= this.vramTimingMinSize) {
                 const vram = this.app.stats.vram;
                 const vs = this._vramStatsCache;
