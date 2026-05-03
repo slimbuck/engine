@@ -10,7 +10,6 @@ import {
 import { BatchGroup } from '../../../scene/batching/batch-group.js';
 import { GraphNode } from '../../../scene/graph-node.js';
 import { MeshInstance } from '../../../scene/mesh-instance.js';
-import { Model } from '../../../scene/model.js';
 import { Component } from '../component.js';
 import { SPRITETYPE_SIMPLE, SPRITETYPE_ANIMATED } from './constants.js';
 import { SpriteAnimationClip } from './sprite-animation-clip.js';
@@ -213,21 +212,24 @@ class SpriteComponent extends Component {
     /** @private */
     _node = new GraphNode();
 
-    /** @private */
-    _model = new Model();
-
-    /** @private */
+    /**
+     * @type {MeshInstance|null}
+     * @private
+     */
     _meshInstance = null;
 
     /** @private */
     _updateAabbFunc = null;
 
     /** @private */
-    _addedModel = false;
+    _inLayers = false;
 
     // animated sprites
 
-    /** @private */
+    /**
+     * @type {string|null}
+     * @private
+     */
     _autoPlayClip = null;
 
     /**
@@ -265,9 +267,7 @@ class SpriteComponent extends Component {
 
         this._material = system.defaultMaterial;
 
-        this._model.graph = this._node;
-        entity.addChild(this._model.graph);
-        this._model._entity = entity;
+        entity.addChild(this._node);
 
         this._updateAabbFunc = this._updateAabb.bind(this);
 
@@ -306,9 +306,9 @@ class SpriteComponent extends Component {
                 this._currentClip.frame = this.frame;
 
                 if (this._currentClip.sprite) {
-                    this._showModel();
+                    this.addToLayers();
                 } else {
-                    this._hideModel();
+                    this.removeFromLayers();
                 }
             }
 
@@ -320,9 +320,9 @@ class SpriteComponent extends Component {
             }
 
             if (this._currentClip && this._currentClip.isPlaying && this.enabled && this.entity.enabled) {
-                this._showModel();
+                this.addToLayers();
             } else {
-                this._hideModel();
+                this.removeFromLayers();
             }
         }
     }
@@ -502,9 +502,9 @@ class SpriteComponent extends Component {
             this._tryAutoPlay();
         }
 
-        // if the current clip doesn't have a sprite then hide the model
+        // if the current clip doesn't have a sprite then remove the mesh instance from layers
         if (!this._currentClip || !this._currentClip.sprite) {
-            this._hideModel();
+            this.removeFromLayers();
         }
     }
 
@@ -657,10 +657,10 @@ class SpriteComponent extends Component {
         if (this.entity.enabled && value >= 0) {
             this.system.app.batcher?.insert(BatchGroup.SPRITE, value, this.entity);
         } else {
-            // re-add model to scene in case it was removed by batching
+            // re-add the sprite mesh instance to layers in case it was removed by batching
             if (prev >= 0) {
                 if (this._currentClip && this._currentClip.sprite && this.enabled && this.entity.enabled) {
-                    this._showModel();
+                    this.addToLayers();
                 }
             }
         }
@@ -723,8 +723,8 @@ class SpriteComponent extends Component {
      * @type {number[]}
      */
     set layers(value) {
-        if (this._addedModel) {
-            this._hideModel();
+        if (this._inLayers) {
+            this.removeFromLayers();
         }
 
         this._layers = value;
@@ -735,7 +735,7 @@ class SpriteComponent extends Component {
         }
 
         if (this.enabled && this.entity.enabled) {
-            this._showModel();
+            this.addToLayers();
         }
     }
 
@@ -768,7 +768,7 @@ class SpriteComponent extends Component {
             this._evtLayerRemoved = layers.on('remove', this._onLayerRemoved, this);
         }
 
-        this._showModel();
+        this.addToLayers();
         if (this._autoPlayClip) {
             this._tryAutoPlay();
         }
@@ -794,7 +794,7 @@ class SpriteComponent extends Component {
         }
 
         this.stop();
-        this._hideModel();
+        this.removeFromLayers();
 
 
         if (this._batchGroupId >= 0) {
@@ -814,8 +814,7 @@ class SpriteComponent extends Component {
         }
         this._clips = null;
 
-        this._hideModel();
-        this._model = null;
+        this.removeFromLayers();
 
         this._node?.remove();
         this._node = null;
@@ -828,8 +827,9 @@ class SpriteComponent extends Component {
         }
     }
 
-    _showModel() {
-        if (this._addedModel) return;
+    /** @private */
+    addToLayers() {
+        if (this._inLayers) return;
         if (!this._meshInstance) return;
 
         const meshInstances = [this._meshInstance];
@@ -841,11 +841,12 @@ class SpriteComponent extends Component {
             }
         }
 
-        this._addedModel = true;
+        this._inLayers = true;
     }
 
-    _hideModel() {
-        if (!this._addedModel || !this._meshInstance) return;
+    /** @private */
+    removeFromLayers() {
+        if (!this._inLayers || !this._meshInstance) return;
 
         const meshInstances = [this._meshInstance];
 
@@ -856,7 +857,7 @@ class SpriteComponent extends Component {
             }
         }
 
-        this._addedModel = false;
+        this._inLayers = false;
     }
 
     // Set the desired mesh on the mesh instance
@@ -889,7 +890,6 @@ class SpriteComponent extends Component {
             this._meshInstance.castShadow = false;
             this._meshInstance.receiveShadow = false;
             this._meshInstance.drawOrder = this._drawOrder;
-            this._model.meshInstances.push(this._meshInstance);
 
             // set overrides on mesh instance
             this._colorUniform[0] = this._color.r;
@@ -898,9 +898,9 @@ class SpriteComponent extends Component {
             this._meshInstance.setParameter(PARAM_EMISSIVE, this._colorUniform);
             this._meshInstance.setParameter(PARAM_OPACITY, this._color.a);
 
-            // now that we created the mesh instance, add the model to the scene
+            // now that we created the mesh instance, add it to the layers
             if (this.enabled && this.entity.enabled) {
-                this._showModel();
+                this.addToLayers();
             }
         }
 
@@ -1057,13 +1057,13 @@ class SpriteComponent extends Component {
     }
 
     _onLayersChanged(oldComp, newComp) {
-        oldComp.off('add', this.onLayerAdded, this);
-        oldComp.off('remove', this.onLayerRemoved, this);
-        newComp.on('add', this.onLayerAdded, this);
-        newComp.on('remove', this.onLayerRemoved, this);
+        oldComp.off('add', this._onLayerAdded, this);
+        oldComp.off('remove', this._onLayerRemoved, this);
+        newComp.on('add', this._onLayerAdded, this);
+        newComp.on('remove', this._onLayerRemoved, this);
 
         if (this.enabled && this.entity.enabled) {
-            this._showModel();
+            this.addToLayers();
         }
     }
 
@@ -1071,7 +1071,7 @@ class SpriteComponent extends Component {
         const index = this.layers.indexOf(layer.id);
         if (index < 0) return;
 
-        if (this._addedModel && this.enabled && this.entity.enabled && this._meshInstance) {
+        if (this._inLayers && this.enabled && this.entity.enabled && this._meshInstance) {
             layer.addMeshInstances([this._meshInstance]);
         }
     }
@@ -1082,14 +1082,6 @@ class SpriteComponent extends Component {
         const index = this.layers.indexOf(layer.id);
         if (index < 0) return;
         layer.removeMeshInstances([this._meshInstance]);
-    }
-
-    removeModelFromLayers() {
-        for (let i = 0; i < this.layers.length; i++) {
-            const layer = this.system.app.scene.layers.getLayerById(this.layers[i]);
-            if (!layer) continue;
-            layer.removeMeshInstances([this._meshInstance]);
-        }
     }
 
     /**
