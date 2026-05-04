@@ -55,6 +55,10 @@ const PARAM_ATLAS_RECT = 'atlasRect';
  * console.log(entity.sprite.color);   // Get the sprite tint and print it
  * ```
  *
+ * Relevant Engine API examples:
+ *
+ * - [Animated sprite](https://playcanvas.github.io/#/misc/animated-sprite)
+ *
  * @hideconstructor
  * @category Graphics
  */
@@ -257,10 +261,8 @@ class SpriteComponent extends Component {
     /**
      * Create a new SpriteComponent instance.
      *
-     * @param {SpriteComponentSystem} system - The ComponentSystem that
-     * created this Component.
-     * @param {Entity} entity - The Entity that this Component is
-     * attached to.
+     * @param {SpriteComponentSystem} system - The ComponentSystem that created this Component.
+     * @param {Entity} entity - The Entity that this Component is attached to.
      */
     constructor(system, entity) {
         super(system, entity);
@@ -827,7 +829,7 @@ class SpriteComponent extends Component {
         }
     }
 
-    /** @private */
+    /** @ignore */
     addToLayers() {
         if (this._inLayers) return;
         if (!this._meshInstance) return;
@@ -844,7 +846,7 @@ class SpriteComponent extends Component {
         this._inLayers = true;
     }
 
-    /** @private */
+    /** @ignore */
     removeFromLayers() {
         if (!this._inLayers || !this._meshInstance) return;
 
