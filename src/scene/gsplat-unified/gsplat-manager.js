@@ -1286,7 +1286,7 @@ class GSplatManager {
         // Phase 2: Evaluate optimal LODs for all octrees and calculate padding for active placements
         let totalOptimalSplats = 0;
         for (const [, inst] of this.octreeInstances) {
-            totalOptimalSplats += inst.evaluateOptimalLods(this.cameraNode, this.scene.gsplat, this._budgetScale);
+            totalOptimalSplats += inst.evaluateOptimalLods(this.cameraNode, this.scene.gsplat, this._budgetScale, globalMaxDistance);
             for (const placement of inst.activePlacements) {
                 const resource = /** @type {GSplatResourceBase} */ (placement.resource);
                 const numSplats = resource?.numSplats ?? 0;
@@ -1316,7 +1316,7 @@ class GSplatManager {
         }
 
         // Budget balancing across all octrees
-        this._budgetBalancer.balance(this.octreeInstances, adjustedBudget, globalMaxDistance);
+        this._budgetBalancer.balance(this.octreeInstances, adjustedBudget);
 
         // Apply LOD changes
         for (const [, inst] of this.octreeInstances) {
