@@ -96,6 +96,12 @@ class ScrollbarComponent extends Component {
     _evtHandleEntityChanges = [];
 
     /**
+     * @type {ElementDragHelper|null}
+     * @private
+     */
+    _handleDragHelper = null;
+
+    /**
      * Sets whether the scrollbar moves horizontally or vertically. Can be:
      *
      * - {@link ORIENTATION_HORIZONTAL}: The scrollbar animates in the horizontal axis.
@@ -112,8 +118,12 @@ class ScrollbarComponent extends Component {
 
         this._orientation = arg;
 
+        // ElementDragHelper captures its axis at construction, so an existing helper
+        // must be rebuilt to keep dragging in sync with the new orientation
         if (this._handleEntity?.element) {
             this._handleEntity.element[this._getOppositeDimension()] = 0;
+            this._rebuildDragHelper();
+            this._updateHandlePositionAndSize();
         }
     }
 
@@ -172,18 +182,22 @@ class ScrollbarComponent extends Component {
     }
 
     /**
-     * Sets the entity to be used as the scrollbar handle. This entity must have a
-     * {@link ScrollbarComponent}.
+     * Sets the entity to be used as the scrollbar handle. This entity must have an
+     * {@link ElementComponent} (with `useInput: true` for the handle to be draggable).
      *
      * @type {Entity|string|null}
      */
     set handleEntity(arg) {
-        if (this._handleEntity === arg) {
-            return;
+        let newEntity;
+        if (arg instanceof GraphNode) {
+            newEntity = arg;
+        } else if (typeof arg === 'string') {
+            newEntity = this.system.app.getEntityFromIndex(arg) ?? null;
+        } else {
+            newEntity = null;
         }
 
-        const isString = typeof arg === 'string';
-        if (this._handleEntity && isString && this._handleEntity.getGuid() === arg) {
+        if (this._handleEntity === newEntity) {
             return;
         }
 
@@ -191,15 +205,9 @@ class ScrollbarComponent extends Component {
             this._handleEntityUnsubscribe();
         }
 
-        if (arg instanceof GraphNode) {
-            this._handleEntity = arg;
-        } else if (isString) {
-            this._handleEntity = this.system.app.getEntityFromIndex(arg) || null;
-        } else {
-            this._handleEntity = null;
-        }
+        this._handleEntity = newEntity;
 
-        if (this._handleEntity) {
+        if (newEntity) {
             this._handleEntitySubscribe();
         }
     }
@@ -235,9 +243,9 @@ class ScrollbarComponent extends Component {
 
         const handles = this._evtHandleEntityChanges;
         handles.push(element.once('beforeremove', this._onHandleElementLose, this));
-        handles.push(element.on('set:anchor', this._onSetHandleAlignment, this));
-        handles.push(element.on('set:margin', this._onSetHandleAlignment, this));
-        handles.push(element.on('set:pivot', this._onSetHandleAlignment, this));
+        handles.push(element.on('set:anchor', this._updateHandlePositionAndSize, this));
+        handles.push(element.on('set:margin', this._updateHandlePositionAndSize, this));
+        handles.push(element.on('set:pivot', this._updateHandlePositionAndSize, this));
     }
 
     _handleEntityElementUnsubscribe() {
@@ -249,11 +257,17 @@ class ScrollbarComponent extends Component {
 
     _onHandleElementGain() {
         this._handleEntityElementSubscribe();
+        this._rebuildDragHelper();
+        this._updateHandlePositionAndSize();
+    }
+
+    _rebuildDragHelper() {
         this._destroyDragHelper();
         this._handleDragHelper = new ElementDragHelper(this._handleEntity.element, this._getAxis());
+        // ElementDragHelper defaults to enabled; mirror the component's current state so a helper
+        // built while the scrollbar is disabled does not start out draggable
+        this._handleDragHelper.enabled = this.enabled && this.entity.enabled;
         this._handleDragHelper.on('drag:move', this._onHandleDrag, this);
-
-        this._updateHandlePositionAndSize();
     }
 
     _onHandleElementLose() {
@@ -267,22 +281,16 @@ class ScrollbarComponent extends Component {
         }
     }
 
-    _onSetHandleAlignment() {
-        this._updateHandlePositionAndSize();
-    }
-
     _updateHandlePositionAndSize() {
         const handleEntity = this._handleEntity;
-        const handleElement = handleEntity?.element;
+        if (!handleEntity) return;
 
-        if (handleEntity) {
-            const position = handleEntity.getLocalPosition();
-            position[this._getAxis()] = this._getHandlePosition();
-            handleEntity.setLocalPosition(position);
-        }
+        const position = handleEntity.getLocalPosition();
+        position[this._getAxis()] = this._getHandlePosition();
+        handleEntity.setLocalPosition(position);
 
-        if (handleElement) {
-            handleElement[this._getDimension()] = this._getHandleLength();
+        if (handleEntity.element) {
+            handleEntity.element[this._getDimension()] = this._getHandleLength();
         }
     }
 
@@ -331,23 +339,20 @@ class ScrollbarComponent extends Component {
     }
 
     _destroyDragHelper() {
-        if (this._handleDragHelper) {
-            this._handleDragHelper.destroy();
-        }
-    }
-
-    _setHandleDraggingEnabled(enabled) {
-        if (this._handleDragHelper) {
-            this._handleDragHelper.enabled = enabled;
-        }
+        this._handleDragHelper?.destroy();
+        this._handleDragHelper = null;
     }
 
     onEnable() {
-        this._setHandleDraggingEnabled(true);
+        if (this._handleDragHelper) {
+            this._handleDragHelper.enabled = true;
+        }
     }
 
     onDisable() {
-        this._setHandleDraggingEnabled(false);
+        if (this._handleDragHelper) {
+            this._handleDragHelper.enabled = false;
+        }
     }
 
     onRemove() {

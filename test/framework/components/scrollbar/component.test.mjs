@@ -169,6 +169,26 @@ describe('ScrollbarComponent', function () {
             expect(handle.element.height).to.equal(heightBefore);
         });
 
+        it('rebuilds the drag helper for the new axis when orientation changes at runtime', function () {
+            const handle = new Entity();
+            handle.addComponent('element', { type: ELEMENTTYPE_IMAGE });
+
+            const e = new Entity();
+            e.addChild(handle);
+            e.addComponent('element', { type: ELEMENTTYPE_IMAGE });
+            e.addComponent('scrollbar', { handleEntity: handle, orientation: ORIENTATION_HORIZONTAL });
+            app.root.addChild(e);
+
+            // ElementDragHelper captures its axis at construction, so the helper must be
+            // rebuilt for the new axis when orientation flips - otherwise drags stay on the
+            // old axis and value updates can stop working
+            expect(e.scrollbar._handleDragHelper._axis).to.equal('x');
+
+            e.scrollbar.orientation = ORIENTATION_VERTICAL;
+
+            expect(e.scrollbar._handleDragHelper._axis).to.equal('y');
+        });
+
     });
 
     describe('#handleEntity', function () {
@@ -208,6 +228,23 @@ describe('ScrollbarComponent', function () {
             e.scrollbar.handleEntity = null;
 
             expect(e.scrollbar.handleEntity).to.equal(null);
+        });
+
+        it('does not leave a newly-built drag helper enabled when the scrollbar is disabled', function () {
+            const handle = new Entity();
+            // intentionally no element yet — adding it later triggers _onHandleElementGain and
+            // builds a fresh ElementDragHelper, which defaults to enabled = true
+
+            const e = new Entity();
+            e.addComponent('element', { type: ELEMENTTYPE_IMAGE });
+            e.addComponent('scrollbar', { enabled: false, handleEntity: handle });
+            app.root.addChild(e);
+
+            handle.addComponent('element', { type: ELEMENTTYPE_IMAGE });
+
+            // helper must mirror the component's disabled state, not its own default
+            expect(e.scrollbar._handleDragHelper).to.exist;
+            expect(e.scrollbar._handleDragHelper.enabled).to.equal(false);
         });
 
         it('unsubscribes from the previous handle entity when reassigned', function () {
