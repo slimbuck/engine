@@ -314,6 +314,7 @@ class KeyboardMouseSource extends InputSource {
         this._element.addEventListener('pointerup', this._onPointerUp);
         this._element.addEventListener('pointercancel', this._onPointerUp);
         this._element.addEventListener('pointerleave', this._onPointerUp);
+        this._element.addEventListener('lostpointercapture', this._onPointerUp);
         this._element.addEventListener('contextmenu', this._onContextMenu);
 
         window.addEventListener('keydown', this._onKeyDown, false);
@@ -330,6 +331,7 @@ class KeyboardMouseSource extends InputSource {
         this._element.removeEventListener('pointerup', this._onPointerUp);
         this._element.removeEventListener('pointercancel', this._onPointerUp);
         this._element.removeEventListener('pointerleave', this._onPointerUp);
+        this._element.removeEventListener('lostpointercapture', this._onPointerUp);
         this._element.removeEventListener('contextmenu', this._onContextMenu);
 
         window.removeEventListener('keydown', this._onKeyDown, false);
