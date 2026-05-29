@@ -20,6 +20,10 @@ import { PickerId } from '../../../scene/picker-id.js';
  * @import { Texture } from '../../../platform/graphics/texture.js'
  */
 
+// Appended to warnings fired when a legacy (non-unified) API is hit in unified mode.
+// Explains the default flip and the temporary workaround.
+const UNIFIED_LEGACY_HINT = 'GSplatComponent#unified now defaults to true (unified rendering). To temporarily restore the deprecated legacy behavior, explicitly set unified=false when creating the component — note that non-unified mode will be removed in a future release.';
+
 /**
  * The GSplatComponent enables an {@link Entity} to render 3D Gaussian Splats. Splats are always
  * loaded from {@link Asset}s rather than being created programmatically. The asset type is
@@ -43,21 +47,6 @@ import { PickerId } from '../../../scene/picker-id.js';
  * entity.gsplat.customAabb = new pc.BoundingBox(new pc.Vec3(), new pc.Vec3(10, 10, 10));
  *
  * console.log(entity.gsplat.customAabb);
- * ```
- *
- * ## Unified Rendering
- *
- * The {@link unified} property enables unified rendering mode, which provides advanced features
- * for Gaussian Splats:
- *
- * - **Global Sorting**: Multiple splat components are sorted together in a single unified sort,
- *   eliminating visibility artifacts and popping effects when splat components overlap.
- * - **LOD Streaming**: Dynamically loads and renders appropriate levels of detail based on camera
- *   distance, enabling efficient rendering of massive splat scenes.
- *
- * ```javascript
- * // Enable unified rendering for advanced features
- * entity.gsplat.unified = true;
  * ```
  *
  * Relevant Engine API examples:
@@ -167,11 +156,11 @@ class GSplatComponent extends Component {
     _castShadows = false;
 
     /**
-     * Whether to use the unified gsplat rendering.
+     * Whether to use the unified gsplat rendering. Defaults to true.
      *
      * @private
      */
-    _unified = false;
+    _unified = true;
 
     /**
      * Per-instance shader parameters. Stores objects with scopeId and data.
@@ -263,7 +252,7 @@ class GSplatComponent extends Component {
     set instance(value) {
 
         if (this.unified) {
-            Debug.errorOnce('GSplatComponent#instance setter is not supported when unified is true.');
+            Debug.errorOnce(`GSplatComponent#instance setter is only available in legacy non-unified mode. ${UNIFIED_LEGACY_HINT}`);
             return;
         }
 
@@ -295,21 +284,15 @@ class GSplatComponent extends Component {
      * @ignore
      */
     get instance() {
+        if (this.unified) {
+            Debug.warnOnce(`GSplatComponent#instance getter returns null in unified mode. ${UNIFIED_LEGACY_HINT}`);
+        }
         return this._instance;
     }
 
-    /**
-     * Sets the material used to render the gsplat.
-     *
-     * **Note:** This setter is only supported when {@link unified} is `false`. When it's true, multiple
-     * gsplat components share a single material per camera/layer combination. To access materials in
-     * unified mode, use {@link GSplatComponentSystem#getMaterial}.
-     *
-     * @param {ShaderMaterial} value - The material instance.
-     */
     set material(value) {
         if (this.unified) {
-            Debug.warn('GSplatComponent#material setter is not supported when unified true. Use app.systems.gsplat.getMaterial(camera, layer) to access materials.');
+            Debug.warn(`GSplatComponent#material setter is only available in legacy non-unified mode; in unified mode use app.systems.gsplat.getMaterial(camera, layer). ${UNIFIED_LEGACY_HINT}`);
             return;
         }
         if (this._instance) {
@@ -319,36 +302,14 @@ class GSplatComponent extends Component {
         }
     }
 
-    /**
-     * Gets the material used to render the gsplat.
-     *
-     * **Note:** This getter returns `null` when {@link unified} is `true`. In unified mode, materials are
-     * organized per camera/layer combination rather than per component. To access materials in
-     * unified mode, use {@link GSplatComponentSystem#getMaterial}.
-     *
-     * @type {ShaderMaterial|null}
-     */
     get material() {
         if (this.unified) {
-            Debug.warnOnce('GSplatComponent#material getter returns null when unified=true. Use app.systems.gsplat.getMaterial(camera, layer) instead.');
+            Debug.warnOnce(`GSplatComponent#material getter returns null in unified mode; use app.systems.gsplat.getMaterial(camera, layer) instead. ${UNIFIED_LEGACY_HINT}`);
             return null;
         }
         return this._instance?.material ?? this._materialTmp ?? null;
     }
 
-    /**
-     * Sets whether to use the high quality or the approximate (but fast) spherical-harmonic calculation when rendering SOG data.
-     *
-     * The low quality approximation evaluates the scene's spherical harmonic contributions
-     * along the camera's Z-axis instead of using each gaussian's view vector. This results
-     * in gaussians being accurate at the center of the screen and becoming less accurate
-     * as they appear further from the center. This is a good trade-off for performance
-     * when rendering large SOG datasets, especially on mobile devices.
-     *
-     * Defaults to false.
-     *
-     * @type {boolean}
-     */
     set highQualitySH(value) {
         if (value !== this._highQualitySH) {
             this._highQualitySH = value;
@@ -356,11 +317,6 @@ class GSplatComponent extends Component {
         }
     }
 
-    /**
-     * Gets whether the high quality (true) or the fast approximate (false) spherical-harmonic calculation is used when rendering SOG data.
-     *
-     * @type {boolean}
-     */
     get highQualitySH() {
         return this._highQualitySH;
     }
@@ -395,7 +351,7 @@ class GSplatComponent extends Component {
             }
 
             // Handle non-unified mode mesh instance
-            const mi = this.instance?.meshInstance;
+            const mi = this._instance?.meshInstance;
 
             if (mi) {
                 if (this._castShadows && !value) {
@@ -522,15 +478,16 @@ class GSplatComponent extends Component {
     }
 
     /**
-     * Sets whether to use the unified gsplat rendering. Default is false.
-     *
-     * Note: Material handling differs between modes. When unified is false, use {@link material}.
-     * When unified is true, materials are shared per camera/layer - use
-     * {@link GSplatComponentSystem#getMaterial} instead.
+     * Sets whether to use the unified gsplat rendering.
      *
      * @type {boolean}
+     * @deprecated Non-unified gsplat rendering is being removed; unified rendering will be the only supported mode.
+     * @ignore
      */
     set unified(value) {
+        if (value === false) {
+            Debug.deprecated('GSplatComponent#unified is deprecated. Non-unified gsplat rendering will be removed in a future release; please migrate to unified rendering (the new default).');
+        }
         if (this._unified !== value) {
             this._unified = value;
             this._onGSplatAssetAdded();
@@ -541,7 +498,8 @@ class GSplatComponent extends Component {
      * Gets whether to use the unified gsplat rendering.
      *
      * @type {boolean}
-     * @alpha
+     * @deprecated Non-unified gsplat rendering is being removed; unified rendering will be the only supported mode.
+     * @ignore
      */
     get unified() {
         return this._unified;
@@ -559,10 +517,10 @@ class GSplatComponent extends Component {
     }
 
     /**
-     * Sets the work buffer update mode. Only applicable in unified rendering mode.
+     * Sets the work buffer update mode.
      *
-     * In unified mode, splat data is rendered to a work buffer only when needed (e.g., when
-     * transforms change). Can be:
+     * Splat data is rendered to a work buffer only when needed (e.g., when transforms change).
+     * Can be:
      * - {@link WORKBUFFER_UPDATE_AUTO}: Update only when needed (default).
      * - {@link WORKBUFFER_UPDATE_ONCE}: Force update this frame, then switch to AUTO.
      * - {@link WORKBUFFER_UPDATE_ALWAYS}: Update every frame.
@@ -572,8 +530,8 @@ class GSplatComponent extends Component {
      *
      * Note: {@link WORKBUFFER_UPDATE_ALWAYS} has a performance impact as it re-renders
      * all splat data to the work buffer every frame. Where possible, consider using shader
-     * customization on the unified gsplat material (`app.scene.gsplat.material`) which is
-     * applied during final rendering without re-rendering the work buffer.
+     * customization on the gsplat material (`app.scene.gsplat.material`) which is applied
+     * during final rendering without re-rendering the work buffer.
      *
      * @type {number}
      */
@@ -594,8 +552,7 @@ class GSplatComponent extends Component {
     }
 
     /**
-     * Sets custom shader code for modifying splats when written to the work buffer. Only
-     * applicable in unified rendering mode.
+     * Sets custom shader code for modifying splats when written to the work buffer.
      *
      * Must provide all three functions:
      * - `modifySplatCenter`: Modify the splat center position
@@ -767,7 +724,7 @@ class GSplatComponent extends Component {
             return;
         }
 
-        const meshInstance = this.instance?.meshInstance;
+        const meshInstance = this._instance?.meshInstance;
         if (meshInstance) {
             const layers = this.system.app.scene.layers;
             for (let i = 0; i < this._layers.length; i++) {
@@ -790,7 +747,7 @@ class GSplatComponent extends Component {
             return;
         }
 
-        const meshInstance = this.instance?.meshInstance;
+        const meshInstance = this._instance?.meshInstance;
         if (meshInstance) {
             const layers = this.system.app.scene.layers;
             for (let i = 0; i < this._layers.length; i++) {
@@ -834,10 +791,8 @@ class GSplatComponent extends Component {
     onLayerAdded(layer) {
         const index = this.layers.indexOf(layer.id);
         if (index < 0) return;
-        if (this.unified) {
-            Debug.errorOnce('GSplatComponent#onLayerAdded is not supported when unified is true.');
-            return;
-        }
+        // unified mode manages layer membership via GSplatPlacement; no legacy mesh-instance work
+        if (this.unified) return;
 
         if (this._instance) {
             layer.addMeshInstances(this._instance.meshInstance);
@@ -847,10 +802,8 @@ class GSplatComponent extends Component {
     onLayerRemoved(layer) {
         const index = this.layers.indexOf(layer.id);
         if (index < 0) return;
-        if (this.unified) {
-            Debug.errorOnce('GSplatComponent#onLayerRemoved is not supported when unified is true.');
-            return;
-        }
+        // unified mode manages layer membership via GSplatPlacement; no legacy mesh-instance work
+        if (this.unified) return;
 
         if (this._instance) {
             layer.removeMeshInstances(this._instance.meshInstance);
@@ -914,7 +867,7 @@ class GSplatComponent extends Component {
 
     /**
      * Sets a shader parameter for this gsplat instance. Parameters set here are applied
-     * during unified rendering.
+     * during rendering.
      *
      * @param {string} name - The name of the parameter (uniform name in shader).
      * @param {number|number[]|ArrayBufferView|Texture|StorageBuffer} data - The value for the parameter.
@@ -947,10 +900,10 @@ class GSplatComponent extends Component {
 
     /**
      * Gets an instance texture by name. Instance textures are per-component textures defined
-     * in the resource's format with `storage: GSPLAT_STREAM_INSTANCE`. Only available in unified mode.
+     * in the resource's format with `storage: GSPLAT_STREAM_INSTANCE`.
      *
      * @param {string} name - The name of the texture.
-     * @returns {Texture|null} The texture, or null if not found or not in unified mode.
+     * @returns {Texture|null} The texture, or null if not found.
      * @example
      * // Add an instance stream to the resource format
      * resource.format.addExtraStreams([

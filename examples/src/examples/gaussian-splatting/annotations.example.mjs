@@ -2,6 +2,11 @@
 //
 // Interactive 3D annotations on a gaussian splat model. Click hotspots to reveal product details with
 // tooltips that follow the 3D positions.
+//
+// @credit
+// title: Bicycle
+// author: Stéphane Agullo
+// source: https://www.stephane-agullo.fr/
 
 import * as pc from 'playcanvas';
 import { Annotation, AnnotationManager } from 'playcanvas/scripts/esm/annotations.mjs';
@@ -99,8 +104,7 @@ assetListLoader.load(() => {
     // Create the bicycle gsplat
     const bicycle = new pc.Entity('Bicycle');
     bicycle.addComponent('gsplat', {
-        asset: assets.bicycle,
-        unified: true
+        asset: assets.bicycle
     });
     bicycle.setLocalEulerAngles(0, 0, 180);
     app.root.addChild(bicycle);

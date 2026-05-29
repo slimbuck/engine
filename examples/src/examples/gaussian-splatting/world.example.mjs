@@ -1,6 +1,11 @@
 // @config
 //
 // Shows a large world scene with LOD streaming and additional moving splats.
+//
+// @credit
+// title: Skatepark
+// author: Christoph Schindelar
+// source: https://superspl.at/user?id=schindelar3d
 
 import * as pc from 'playcanvas';
 import { CameraControls } from 'playcanvas/scripts/esm/camera-controls.mjs';
@@ -142,8 +147,7 @@ assetListLoader.load(() => {
     // Create skatepark entity
     const skatepark = new pc.Entity('Skatepark');
     skatepark.addComponent('gsplat', {
-        asset: assets.skatepark,
-        unified: true
+        asset: assets.skatepark
     });
     skatepark.setLocalPosition(0, 0, 0);
     const [rotX, rotY, rotZ] = /** @type {[number, number, number]} */ (config.eulerAngles);
@@ -172,8 +176,7 @@ assetListLoader.load(() => {
     // Create biker entity at center, ground level
     const biker = new pc.Entity('Biker');
     biker.addComponent('gsplat', {
-        asset: assets.biker,
-        unified: true
+        asset: assets.biker
     });
     biker.setLocalPosition(worldCenter.x, worldCenter.y, worldCenter.z);
     biker.setLocalEulerAngles(180, 0, 0);
@@ -183,8 +186,7 @@ assetListLoader.load(() => {
     // Create first orbiting logo
     const logo1 = new pc.Entity('Logo1');
     logo1.addComponent('gsplat', {
-        asset: assets.logo,
-        unified: true
+        asset: assets.logo
     });
     logo1.setLocalEulerAngles(180, 90, 0);
     app.root.addChild(logo1);
@@ -192,8 +194,7 @@ assetListLoader.load(() => {
     // Create second orbiting logo
     const logo2 = new pc.Entity('Logo2');
     logo2.addComponent('gsplat', {
-        asset: assets.logo,
-        unified: true
+        asset: assets.logo
     });
     logo2.setLocalEulerAngles(180, 90, 0);
     logo2.setLocalScale(0.5, 0.5, 0.5);

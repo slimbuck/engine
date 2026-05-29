@@ -1,7 +1,7 @@
 // @config
 //
-// This example demonstrates unified gsplat rendering, where all individual gaussian splats are
-// consistently sorted in a global order, rather than rendering splat meshes based on camera distance.
+// This example demonstrates global gsplat sorting, where individual gaussian splats across
+// multiple components are consistently sorted in a single order, rather than per component.
 
 import * as pc from 'playcanvas';
 
@@ -72,8 +72,7 @@ assetListLoader.load(() => {
     // instantiate garage gsplat
     const hotel = new pc.Entity('garage');
     hotel.addComponent('gsplat', {
-        asset: assets.hotel,
-        unified: true
+        asset: assets.hotel
     });
     hotel.setLocalEulerAngles(180, 0, 0);
     app.root.addChild(hotel);
@@ -81,8 +80,7 @@ assetListLoader.load(() => {
     // create biker1
     const biker1 = new pc.Entity('biker1');
     biker1.addComponent('gsplat', {
-        asset: assets.biker,
-        unified: true
+        asset: assets.biker
     });
     biker1.setLocalPosition(0, -1.8, -2);
     biker1.setLocalEulerAngles(180, 90, 0);
@@ -97,8 +95,7 @@ assetListLoader.load(() => {
     // create guitar
     const guitar = new pc.Entity('guitar');
     guitar.addComponent('gsplat', {
-        asset: assets.guitar,
-        unified: true
+        asset: assets.guitar
     });
     guitar.setLocalPosition(2, -1.8, -0.5);
     guitar.setLocalEulerAngles(0, 0, 180);
@@ -119,7 +116,6 @@ assetListLoader.load(() => {
     camera.script.create('orbitCamera', {
         attributes: {
             inertiaFactor: 0.2,
-            focusEntity: guitar,
             distanceMax: 3.2,
             frameOnStart: false
         }
@@ -127,4 +123,9 @@ assetListLoader.load(() => {
     camera.script.create('orbitCameraInputMouse');
     camera.script.create('orbitCameraInputTouch');
     app.root.addChild(camera);
+
+    // orbit around the statue's world-space centre
+    const orbitPivot = new pc.Vec3();
+    hotel.getWorldTransform().transformPoint(new pc.Vec3(0, 0.2, 0), orbitPivot);
+    camera.script.orbitCamera.resetAndLookAtPoint(new pc.Vec3(3, 1, 0.5), orbitPivot);
 });

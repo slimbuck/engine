@@ -3,6 +3,11 @@
 // Demonstrates LOD streaming with radial reveal effect for progressive loading of Gaussian Splats.
 //
 // @flag NO_MINISTATS
+//
+// @credit
+// title: Roman Parish
+// author: Andrii Shramko
+// source: https://www.linkedin.com/in/andrii-shramko/
 
 import * as pc from 'playcanvas';
 import { CameraControls } from 'playcanvas/scripts/esm/camera-controls.mjs';
@@ -463,8 +468,7 @@ assetListLoader.load(async () => {
 
         gsplatEntity = new pc.Entity(config.name || 'gsplat'); // eslint-disable-line require-atomic-updates
         gsplatEntity.addComponent('gsplat', {
-            asset: asset,
-            unified: true
+            asset: asset
         });
         gsplatEntity.setLocalPosition(0, 0, 0);
         gsplatEntity.setLocalEulerAngles(data.get('orientation'), 0, 0);

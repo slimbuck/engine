@@ -4,6 +4,11 @@
 // Particles follow the camera using a deterministic 3D grid with hash-based positioning and animation.
 //
 // @flag NO_MINISTATS
+//
+// @credit
+// title: Roman Parish
+// author: Andrii Shramko
+// source: https://www.linkedin.com/in/andrii-shramko/
 
 import * as pc from 'playcanvas';
 import { CameraControls } from 'playcanvas/scripts/esm/camera-controls.mjs';
@@ -90,8 +95,7 @@ assetListLoader.load(() => {
     // Load the gsplat scene
     const gsplatEntity = new pc.Entity('Roman-Parish');
     gsplatEntity.addComponent('gsplat', {
-        asset: assets.scene,
-        unified: true
+        asset: assets.scene
     });
     gsplatEntity.setLocalEulerAngles(270, 0, 0);
     app.root.addChild(gsplatEntity);

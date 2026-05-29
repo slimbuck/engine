@@ -1,6 +1,11 @@
 // @config
 //
 // Procedural shapes rendered using gaussian splats. Demonstrates lines, text and image-based splats.
+//
+// @credit
+// title: Bicycle
+// author: Stéphane Agullo
+// source: https://www.stephane-agullo.fr/
 
 import * as pc from 'playcanvas';
 import { CameraControls } from 'playcanvas/scripts/esm/camera-controls.mjs';
@@ -82,8 +87,7 @@ assetListLoader.load(() => {
     // Create the bicycle gsplat
     const bicycle = new pc.Entity('Bicycle');
     bicycle.addComponent('gsplat', {
-        asset: assets.bicycle,
-        unified: true
+        asset: assets.bicycle
     });
     bicycle.setLocalEulerAngles(0, 0, 180);
     app.root.addChild(bicycle);

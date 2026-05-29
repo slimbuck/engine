@@ -4,6 +4,22 @@
 // through it.
 //
 // @flag NO_MINISTATS
+//
+// @credit
+// title: Portal Frame
+// author: Sketchfab
+// source: https://sketchfab.com/3d-models/portal-frame-da34b37a224e4e49b307c0b17a50af2c
+// license: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+//
+// @credit
+// title: Roman Parish
+// author: Andrii Shramko
+// source: https://www.linkedin.com/in/andrii-shramko/
+//
+// @credit
+// title: Skatepark
+// author: Christoph Schindelar
+// source: https://superspl.at/user?id=schindelar3d
 
 import * as pc from 'playcanvas';
 import { CameraControls } from 'playcanvas/scripts/esm/camera-controls.mjs';
@@ -95,9 +111,9 @@ assetListLoader.load(() => {
     // ---------- Layer setup ----------
     // Each splat scene has its own dedicated layer (outsideLayer for Parish,
     // insideLayer for Skatepark). The data on each layer never changes - we
-    // never reassign gsplat entities to a different layer, so the unified
-    // gsplat manager for each layer keeps its splat data preloaded and there's
-    // no reconciliation cost on portal crossings.
+    // never reassign gsplat entities to a different layer, so the gsplat manager
+    // for each layer keeps its splat data preloaded and there's no reconciliation
+    // cost on portal crossings.
     //
     // What changes on a crossing is:
     //   1) the order of the two splat transparent sub-layers, so the
@@ -334,7 +350,6 @@ assetListLoader.load(() => {
         const entity = new pc.Entity(`${config.name}Splat`);
         entity.addComponent('gsplat', {
             asset: config.asset,
-            unified: true,
             layers: [config.layer.id]
         });
 
@@ -528,7 +543,7 @@ assetListLoader.load(() => {
     portalGroup.addChild(glassPlane);
 
     // ---------- Stencil + depth setup for the two splat scenes ----------
-    // In unified mode the gsplat material is created lazily per (camera, layer) pair.
+    // The gsplat material is created lazily per (camera, layer) pair.
     // The from-scene (the world the camera is in) gets:
     //  - no stencil restriction
     //  - depthFunc = LESSEQUAL

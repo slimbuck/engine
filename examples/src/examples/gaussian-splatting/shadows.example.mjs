@@ -3,6 +3,12 @@
 // Demonstrates shadow catching with Gaussian Splats.
 //
 // @flag HIDDEN
+//
+// @credit
+// title: St Peter's Square Night
+// author: Poly Haven
+// source: https://polyhaven.com/a/st_peters_square_night
+// license: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
 
 import * as pc from 'playcanvas';
 import { ShadowCatcher } from 'playcanvas/scripts/esm/shadow-catcher.mjs';
@@ -103,8 +109,7 @@ assetListLoader.load(() => {
     const biker = new pc.Entity('biker');
     biker.addComponent('gsplat', {
         asset: assets.biker,
-        castShadows: true,
-        unified: true
+        castShadows: true
     });
     biker.setLocalPosition(-1.5, 0.05, 0);
     biker.setLocalEulerAngles(180, 90, 0);
@@ -115,8 +120,7 @@ assetListLoader.load(() => {
     const biker2 = new pc.Entity('biker2');
     biker2.addComponent('gsplat', {
         asset: assets.biker,
-        castShadows: true,
-        unified: true
+        castShadows: true
     });
     biker2.setLocalPosition(0.5, 0.05, 0);
     biker2.setLocalEulerAngles(180, 0, 0);

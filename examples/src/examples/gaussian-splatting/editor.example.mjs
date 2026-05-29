@@ -1,11 +1,14 @@
 // @config
 //
-// <span style="color:yellow">
-//     <b>Controls:</b> Select button - show selection box | Gizmo - move selection box | Left Mouse
-//     Button - orbit
-// </span>
-// <br>
 // GSplat editor with AABB selection, deletion, and cloning using GSplatProcessor.
+//
+// `Select button` Show selection box · `Gizmo` Move selection box · `LMB` Orbit
+//
+// @credit
+// title: SA3D_R&D_XP47
+// author: Stephane Agullo
+// source: https://superspl.at/view?id=cdcec084
+// license: CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
 
 import * as pc from 'playcanvas';
 
@@ -228,7 +231,7 @@ assetListLoader.load(() => {
     // Creates an editable gsplat entity with splatVisible and splatSelection streams
     const createEditableSplat = (name, asset, position, rotation, scale) => {
         const entity = new pc.Entity(name);
-        const gsplatComponent = entity.addComponent('gsplat', { asset, unified: true });
+        const gsplatComponent = entity.addComponent('gsplat', { asset });
         entity.setLocalPosition(...position);
         entity.setLocalEulerAngles(...rotation);
         entity.setLocalScale(...scale);
@@ -351,8 +354,7 @@ assetListLoader.load(() => {
         const name = `clone${cloneCounter}`;
         const entity = new pc.Entity(name);
         const gsplatComponent = entity.addComponent('gsplat', {
-            resource: container,
-            unified: true
+            resource: container
         });
         entity.setLocalPosition(aabbCenter.x + 0.1, aabbCenter.y, aabbCenter.z + 0.1);
         app.root.addChild(entity);
