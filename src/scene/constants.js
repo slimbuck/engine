@@ -1313,6 +1313,16 @@ export const GSPLAT_RENDERER_RASTER_GPU_SORT = 2;
 export const GSPLAT_RENDERER_COMPUTE = 3;
 
 /**
+ * No engine rendering: the engine keeps LOD, streaming, the splat budget and the work buffer, and
+ * an application-provided renderer draws the splats. The engine creates no material, mesh
+ * instance, sort or projection resources, casts no gsplat shadows and does not pick gsplats.
+ *
+ * @type {number}
+ * @category Graphics
+ */
+export const GSPLAT_RENDERER_EXTERNAL = 4;
+
+/**
  * LOD selection driven by per-level approximation errors: the splat budget is spent where it
  * removes the most error per splat, using the manifest's error tables when present and errors
  * derived from splat counts otherwise. This lifts sparse, low-quality regions - sky, distant

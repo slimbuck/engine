@@ -210,6 +210,7 @@ class GSplatParams {
      * {@link GSPLAT_RENDERER_RASTER_CPU_SORT} on WebGL.
      * - {@link GSPLAT_RENDERER_RASTER_CPU_SORT}: Rasterization with CPU-side sorting.
      * - {@link GSPLAT_RENDERER_RASTER_GPU_SORT}: Rasterization with GPU-side sorting (WebGPU only).
+     * - {@link GSPLAT_RENDERER_EXTERNAL}: No engine rendering, for an application-provided renderer.
      *
      * Defaults to {@link GSPLAT_RENDERER_AUTO}. Modes requiring WebGPU fall back to
      * {@link GSPLAT_RENDERER_RASTER_CPU_SORT} on WebGL devices. The resolved mode actually used

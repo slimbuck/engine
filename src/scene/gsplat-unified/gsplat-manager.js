@@ -6,10 +6,12 @@ import { GSplatWorld } from './gsplat-world.js';
 import { GSplatQuadRenderer } from './gsplat-quad-renderer.js';
 import { GSplatHybridRenderer } from './gsplat-hybrid-renderer.js';
 import { GSplatHybridRendererScratch } from './gsplat-hybrid-renderer-scratch.js';
+import { GSplatExternalRenderer } from './gsplat-external-renderer.js';
 import { GSplatShadowRenderer } from './gsplat-shadow-renderer.js';
 import { Debug } from '../../core/debug.js';
 import { BoundingBox } from '../../core/shape/bounding-box.js';
 import {
+    GSPLAT_RENDERER_EXTERNAL,
     GSPLAT_RENDERER_RASTER_GPU_SORT,
     GSPLAT_FORWARD,
     GSPLAT_SHADOW,
@@ -61,6 +63,8 @@ const _lodColors = [
  * - GPU sort ({@link GSplatHybridRenderer}, WebGPU only): the renderer owns the interval cull +
  *   compaction, projector, and radix sort; the manager just marks the version sorted and calls
  *   {@link GSplatRenderer#prepareRenderView}.
+ * - External ({@link GSplatExternalRenderer}): no sort and no draw; the manager only keeps the
+ *   world baked for an application-provided renderer.
  *
  * @ignore
  */
@@ -486,6 +490,8 @@ class GSplatManager {
             this._hybridScratch ??= new GSplatHybridRendererScratch(this.device);
             // The hybrid renderer creates its own GPU sort resources (radix sorter, projector).
             this.renderer = new GSplatHybridRenderer(this.device, this.node, this.cameraNode, this.layer, workBuffer, this._hybridScratch);
+        } else if (mode === GSPLAT_RENDERER_EXTERNAL) {
+            this.renderer = new GSplatExternalRenderer(this.device, this.node, this.cameraNode, this.layer, workBuffer);
         } else {
             this.renderer = new GSplatQuadRenderer(this.device, this.node, this.cameraNode, this.layer, workBuffer);
             this.initCpuSorting();
@@ -558,8 +564,8 @@ class GSplatManager {
      */
     _markSortedIfNeeded(worldState) {
         if (!worldState.sortedBefore) {
-            // GPU sort always runs interval culling, so upload bounds (updateBounds = true).
-            this.world.markSorted(worldState.version, worldState.totalActiveSplats, this.cameraNode, true, this._markResult);
+            // GPU sort runs interval culling and needs bounds; the external renderer does not.
+            this.world.markSorted(worldState.version, worldState.totalActiveSplats, this.cameraNode, this.renderer.requiresBounds, this._markResult);
             if (this._markResult.rebuilt) {
                 this.renderer.update(this._markResult.count, this._markResult.textureSize);
             }
@@ -702,7 +708,7 @@ class GSplatManager {
         if (this._bakeResult.rebuilt) {
             this.renderer.update(this._bakeResult.count, this._bakeResult.textureSize);
 
-            // rebuildWorkBuffer may resize, which destroys/recreates orderBuffer — rebind it
+            // rebuildWorkBuffer may resize the order data — rebind it
             this.renderer.setOrderData();
 
             // boundsBaseIndex may have changed — force interval metadata re-upload
@@ -714,9 +720,10 @@ class GSplatManager {
         // Kick off sorting. The GPU path runs every frame (projector + radix + fresh per-frame
         // indirect args; the post-projector visible count differs from the interval prefix sum).
         // The CPU path posts to the worker only when a re-sort is needed. The version lifecycle
-        // (markSorted on the first sort of a version) stays here in the manager.
+        // (markSorted on the first sort of a version) stays here in the manager. The external
+        // renderer takes the GPU branch: nothing to sort, and its prepareRenderView is a no-op.
         if (lastState) {
-            if (this.renderer.usesGpuSort) {
+            if (!this.renderer.requiresCpuSort) {
                 this._markSortedIfNeeded(lastState);
 
                 // Only run the forward GPU pipeline (projector + radix sort) when this manager

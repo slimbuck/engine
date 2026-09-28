@@ -60,8 +60,8 @@ class GSplatLayerData {
         const manager = new GSplatManager(device, director, layer, cameraNode);
         manager.setRenderMode(renderMode);
 
-        // Fire material:created event
-        if (director.eventHandler) {
+        // Fire material:created event (the external renderer has no material)
+        if (director.eventHandler && manager.material) {
             director.eventHandler.fire('material:created', manager.material, camera, layer);
         }
 

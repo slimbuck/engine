@@ -73,7 +73,8 @@ class GSplatComponentSystem extends ComponentSystem {
     /**
      * Fired when a GSplat material is created for a camera and layer combination. Materials are
      * created during the first frame update when the GSplat is rendered. The handler is passed
-     * the {@link ShaderMaterial}, the {@link CameraComponent}, and the {@link Layer}.
+     * the {@link ShaderMaterial}, the {@link CameraComponent}, and the {@link Layer}. Not fired
+     * with {@link GSPLAT_RENDERER_EXTERNAL}, which creates no material.
      *
      * This event is useful for setting up custom material chunks and parameters before the
      * first render.
