@@ -42,6 +42,15 @@ class FramePassMultiView extends FramePass {
     children = [];
 
     /**
+     * True if the children are a camera's own frame passes (such as CameraFrame's), which render
+     * the scene into a target of their own and composite it onto the backbuffer without its depth,
+     * so the projection layer is given no depth of the scene for them.
+     *
+     * @type {boolean}
+     */
+    cameraPasses = false;
+
+    /**
      * @param {GraphicsDevice} graphicsDevice - The graphics device.
      */
     constructor(graphicsDevice) {
@@ -103,14 +112,18 @@ class FramePassMultiView extends FramePass {
             // refresh the backbuffer's color attachment view to point to the active eye's sub-image
             backBufferImpl?.assignColorTexture?.(sub.colorTexture, sub.viewFormat);
 
-            // and its depth to the sub-image's depth, where the projection layer has one, so the
+            // and prepare the sub-image's depth, where the projection layer has one, so the
             // compositor can reproject a late frame by depth rather than by rotation alone
             if (sub.depthTexture) {
-                backBufferImpl?.assignDepthTexture?.(sub.depthTexture, sub.depthViewDescriptor);
+                backBufferImpl?.beginXrViewDepth?.(sub, sub.sceneDepth && !this.cameraPasses);
             }
 
             for (let c = 0; c < childCount; c++) {
                 children[c].render();
+            }
+
+            if (sub.depthTexture) {
+                backBufferImpl?.endXrViewDepth?.(sub);
             }
         }
 

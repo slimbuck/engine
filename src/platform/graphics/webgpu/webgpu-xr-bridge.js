@@ -27,8 +27,8 @@ class WebgpuXrBridge {
 
     /**
      * The depth format the projection layer was created with, null for none. A runtime can hand
-     * out a depth texture regardless (Safari on visionOS does); it is rendered into only when
-     * asked for.
+     * out a depth texture regardless, and read it (Safari on visionOS does); that one is cleared
+     * to the far plane rather than left with unrelated contents.
      *
      * @type {string|null}
      * @private
@@ -108,10 +108,11 @@ class WebgpuXrBridge {
                 }
             }
 
-            // the view's depth, where the projection layer was created with one: the same array
-            // layer as its color, which the per-view passes render the scene's depth into for the
-            // compositor. The view keeps the texture's own format
-            const depthTexture = this._layerDepthFormat ? (sub.depthStencilTexture ?? null) : null;
+            // the view's depth, where the runtime provides one: the same array layer as its
+            // color, which takes the scene's depth for the compositor when the layer was created
+            // with a depth format, and is cleared to the far plane otherwise (see
+            // WebgpuRenderTarget#beginXrViewDepth). The view keeps the texture's own format
+            const depthTexture = sub.depthStencilTexture ?? null;
             const depthViewDescriptor = depthTexture ? {
                 dimension: '2d',
                 baseMipLevel: 0,
@@ -130,7 +131,8 @@ class WebgpuXrBridge {
                 viewport: sub.viewport,
                 viewFormat: viewDescriptor?.format ?? colorTexture.format,
                 depthTexture,
-                depthViewDescriptor
+                depthViewDescriptor,
+                sceneDepth: !!this._layerDepthFormat
             });
         }
 

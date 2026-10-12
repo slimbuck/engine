@@ -350,9 +350,12 @@ class WebgpuGraphicsDevice extends GraphicsDevice {
     /**
      * Per-view XR sub-image entries populated each frame by the WebGPU XR bridge. Each entry
      * describes one XR view: the underlying GPU color texture, the view descriptor that selects the
-     * right slice, the viewport, and the view's GPU format. Empty outside immersive WebGPU XR.
+     * right slice, the viewport, and the view's GPU format; the projection layer's depth texture
+     * for the view where the runtime provides one, the descriptor of its slice, and whether it
+     * takes the scene's depth (otherwise it is cleared to the far plane). Empty outside immersive
+     * WebGPU XR.
      *
-     * @type {{ colorTexture: any, viewDescriptor: any, viewport: any, viewFormat: any }[]}
+     * @type {{ colorTexture: any, viewDescriptor: any, viewport: any, viewFormat: any, depthTexture: any, depthViewDescriptor: any, sceneDepth: boolean }[]}
      * @ignore
      */
     xrSubImages = [];

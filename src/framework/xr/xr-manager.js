@@ -300,7 +300,9 @@ class XrManager extends EventHandler {
      * Whether a WebGPU session's projection layer carries the scene's depth, so the compositor can
      * reproject a frame that misses its display time for the movement of the head and not only its
      * rotation. Read when a session starts; a runtime that rejects the depth format presents
-     * without it. WebGL sessions are unaffected. Defaults to true.
+     * without it. Without it, a depth texture the runtime provides regardless (Safari on visionOS
+     * does, and reads it) is cleared to the far plane, so late frames are corrected for rotation
+     * alone. WebGL sessions are unaffected. Defaults to true.
      *
      * @type {boolean}
      */
