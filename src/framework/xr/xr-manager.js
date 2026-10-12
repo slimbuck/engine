@@ -297,6 +297,16 @@ class XrManager extends EventHandler {
     _depthFar = 1000;
 
     /**
+     * Whether a WebGPU session's projection layer carries the scene's depth, so the compositor can
+     * reproject a frame that misses its display time for the movement of the head and not only its
+     * rotation. Read when a session starts; a runtime that rejects the depth format presents
+     * without it. WebGL sessions are unaffected. Defaults to true.
+     *
+     * @type {boolean}
+     */
+    submitDepth = true;
+
+    /**
      * @type {number[]|null}
      * @private
      */
@@ -959,6 +969,9 @@ class XrManager extends EventHandler {
                 framebufferScaleFactor,
                 depthNear: this._depthNear,
                 depthFar: this._depthFar,
+                // without stencil: Safari on visionOS reports its layer depth as depth24plus
+                // whatever is asked for, and a view of another format fails
+                depthFormat: this.submitDepth ? 'depth24plus' : null,
                 onBindingError: (ex) => {
                     this.fire('error', ex);
                 }

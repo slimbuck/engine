@@ -102,6 +102,22 @@ class DepthAttachment {
     transient = false;
 
     /**
+     * The view rendering writes to: the depth texture's, or the multi-sampled buffer's.
+     *
+     * @type {GPUTextureView|null}
+     * @private
+     */
+    renderingView = null;
+
+    /**
+     * The format of the internal depth buffer, while {@link format} is an assigned texture's.
+     *
+     * @type {string|null}
+     * @private
+     */
+    internalFormat = null;
+
+    /**
      * @param {string} gpuFormat - The WebGPU format (GPUTextureFormat).
      */
     constructor(gpuFormat) {
@@ -159,6 +175,16 @@ class WebgpuRenderTarget {
     assignedColorTexture = null;
 
     /**
+     * Depth texture assigned per XR view, and not owned by this render target: the WebXR
+     * projection layer's depth, which the compositor reads to reproject a late frame. Null while
+     * the render target renders into its own depth buffer.
+     *
+     * @type {GPUTexture|null}
+     * @private
+     */
+    assignedDepthTexture = null;
+
+    /**
      * Render pass descriptor used when starting a render pass for this render target.
      *
      * @type {GPURenderPassDescriptor}
@@ -188,6 +214,7 @@ class WebgpuRenderTarget {
         this.initialized = false;
 
         this.assignedColorTexture = null;
+        this.assignedDepthTexture = null;
 
         this.colorAttachments.forEach((colorAttachment) => {
             colorAttachment.destroy(device);
@@ -246,6 +273,45 @@ class WebgpuRenderTarget {
 
         // for main framebuffer, this is how the format is obtained
         this.setColorAttachment(0, undefined, viewFormat);
+
+        this.updateKey();
+    }
+
+    /**
+     * Assign a depth buffer, the main framebuffer's equivalent of {@link assignColorTexture}: a
+     * WebXR projection layer's depth texture for the current view, rendered into in place of the
+     * internal depth buffer so the compositor can reproject the view by its depth, or null to
+     * render into the internal depth buffer again. Only for a single-sampled render target with a
+     * depth buffer; does nothing otherwise.
+     *
+     * @param {any} gpuTexture - // `GPUTexture|null`; using `any` to avoid exporting WebGPU types in published typings.
+     * @param {any} [viewDescriptor] - // `GPUTextureViewDescriptor`; the view's slice of an array texture.
+     */
+    assignDepthTexture(gpuTexture, viewDescriptor) {
+        const attachment = this.renderPassDescriptor.depthStencilAttachment;
+        if (!attachment || !this.depthAttachment || this.renderTarget.samples > 1) {
+            return;
+        }
+        if (!gpuTexture && !this.assignedDepthTexture) {
+            return;
+        }
+
+        // the render pipelines take their depth format from the attachment, and the assigned
+        // texture's can differ from the internal buffer's
+        const depth = this.depthAttachment;
+        depth.internalFormat ??= depth.format;
+        this.assignedDepthTexture = gpuTexture ?? null;
+        if (gpuTexture) {
+            const view = gpuTexture.createView(viewDescriptor);
+            DebugHelper.setLabel(view, 'Framebuffer.xrDepthTextureView');
+            attachment.view = view;
+            depth.format = gpuTexture.format;
+        } else {
+            attachment.view = depth.renderingView;
+            depth.format = depth.internalFormat;
+            depth.internalFormat = null;
+        }
+        depth.hasStencil = depth.format.includes('stencil');
 
         this.updateKey();
     }
@@ -443,6 +509,7 @@ class WebgpuRenderTarget {
             }
 
             Debug.assert(renderingView);
+            this.depthAttachment.renderingView = renderingView;
             this.renderPassDescriptor.depthStencilAttachment = {
                 view: renderingView
             };
@@ -619,12 +686,24 @@ class WebgpuRenderTarget {
 
         const depthAttachment = this.renderPassDescriptor.depthStencilAttachment;
         if (depthAttachment) {
+            // an XR view's depth is the compositor's input, so it is always stored
+            const xrDepth = this.assignedDepthTexture;
+            const hasStencil = this.depthAttachment.hasStencil;
+
             depthAttachment.depthClearValue = renderPass.depthStencilOps.clearDepthValue;
             depthAttachment.depthLoadOp = renderPass.depthStencilOps.clearDepth ? 'clear' : 'load';
-            depthAttachment.depthStoreOp = renderPass.depthStencilOps.storeDepth ? 'store' : 'discard';
+            depthAttachment.depthStoreOp = (renderPass.depthStencilOps.storeDepth || xrDepth) ? 'store' : 'discard';
             depthAttachment.depthReadOnly = false;
 
-            if (this.depthAttachment.hasStencil) {
+            // a depth-only format takes no stencil operations
+            if (!hasStencil) {
+                delete depthAttachment.stencilClearValue;
+                delete depthAttachment.stencilLoadOp;
+                delete depthAttachment.stencilStoreOp;
+                delete depthAttachment.stencilReadOnly;
+            }
+
+            if (hasStencil) {
                 depthAttachment.stencilClearValue = renderPass.depthStencilOps.clearStencilValue;
                 depthAttachment.stencilLoadOp = renderPass.depthStencilOps.clearStencil ? 'clear' : 'load';
                 depthAttachment.stencilStoreOp = renderPass.depthStencilOps.storeStencil ? 'store' : 'discard';
@@ -633,7 +712,7 @@ class WebgpuRenderTarget {
 
             // transient (memoryless) depth must be cleared on load and discarded on store (see the
             // color attachment note above) - force compliant ops to avoid a validation error.
-            if (this.depthAttachment.transient &&
+            if (this.depthAttachment.transient && !xrDepth &&
                 (depthAttachment.depthLoadOp !== 'clear' || depthAttachment.depthStoreOp !== 'discard' ||
                 (this.depthAttachment.hasStencil && (depthAttachment.stencilLoadOp !== 'clear' || depthAttachment.stencilStoreOp !== 'discard')))) {
 
