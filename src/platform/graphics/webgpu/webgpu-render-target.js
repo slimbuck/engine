@@ -185,6 +185,25 @@ class WebgpuRenderTarget {
     assignedDepthTexture = null;
 
     /**
+     * A depth buffer of this render target's own format and sample count, which the views of an
+     * XR session render into where they cannot render into the projection layer's depth, and which
+     * is copied into it after each view (see {@link WebgpuRenderTarget#beginXrViewDepth}).
+     *
+     * @type {GPUTexture|null}
+     * @private
+     */
+    xrDepthCopyTexture = null;
+
+    /**
+     * How the current XR view's depth reaches the projection layer: 'direct', 'copy' or 'clear'
+     * (see {@link WebgpuRenderTarget#beginXrViewDepth}), or null outside a view.
+     *
+     * @type {string|null}
+     * @private
+     */
+    xrViewDepth = null;
+
+    /**
      * Render pass descriptor used when starting a render pass for this render target.
      *
      * @type {GPURenderPassDescriptor}
@@ -215,6 +234,11 @@ class WebgpuRenderTarget {
 
         this.assignedColorTexture = null;
         this.assignedDepthTexture = null;
+
+        if (this.xrDepthCopyTexture) {
+            device.deferDestroy(this.xrDepthCopyTexture);
+            this.xrDepthCopyTexture = null;
+        }
 
         this.colorAttachments.forEach((colorAttachment) => {
             colorAttachment.destroy(device);
@@ -279,21 +303,27 @@ class WebgpuRenderTarget {
 
     /**
      * Assign a depth buffer, the main framebuffer's equivalent of {@link assignColorTexture}: a
-     * WebXR projection layer's depth texture for the current view, rendered into in place of the
-     * internal depth buffer so the compositor can reproject the view by its depth, or null to
-     * render into the internal depth buffer again. Only for a single-sampled render target with a
-     * depth buffer; does nothing otherwise.
+     * depth texture for the current XR view, rendered into in place of the internal depth buffer,
+     * or null to render into the internal depth buffer again. The texture must have the render
+     * target's sample count, and a stencil aspect if the render target has stencil, as the render
+     * pipelines then emit stencil state. Does nothing for a render target without a depth buffer
+     * or one not initialized yet.
      *
      * @param {any} gpuTexture - // `GPUTexture|null`; using `any` to avoid exporting WebGPU types in published typings.
      * @param {any} [viewDescriptor] - // `GPUTextureViewDescriptor`; the view's slice of an array texture.
+     * @returns {boolean} True if the texture is rendered into from now on.
      */
     assignDepthTexture(gpuTexture, viewDescriptor) {
         const attachment = this.renderPassDescriptor.depthStencilAttachment;
-        if (!attachment || !this.depthAttachment || this.renderTarget.samples > 1) {
-            return;
+        if (!attachment || !this.depthAttachment) {
+            return false;
         }
+        Debug.assert(!gpuTexture || gpuTexture.sampleCount === this.renderTarget.samples,
+            'An assigned depth texture must have the render target\'s sample count.');
+        Debug.assert(!gpuTexture || !this.renderTarget.stencil || gpuTexture.format.includes('stencil'),
+            'An assigned depth texture needs a stencil aspect when the render target has stencil.');
         if (!gpuTexture && !this.assignedDepthTexture) {
-            return;
+            return true;
         }
 
         // the render pipelines take their depth format from the attachment, and the assigned
@@ -314,6 +344,99 @@ class WebgpuRenderTarget {
         depth.hasStencil = depth.format.includes('stencil');
 
         this.updateKey();
+        return true;
+    }
+
+    /**
+     * Prepares the depth of an XR view whose projection layer has a depth texture, which the
+     * compositor reads to reproject a frame that misses its display time for the head's movement
+     * as well as its rotation. Called on the framebuffer before the view's passes render, and
+     * {@link WebgpuRenderTarget#endXrViewDepth} after them. A single-sampled framebuffer renders
+     * its depth straight into the layer's, unless it has stencil and the layer's format does not
+     * (Safari's is depth24plus). Otherwise it renders into a depth buffer of its own kind, multi-
+     * sampled or with stencil, which is then copied into the layer's. Where the layer takes no
+     * scene depth (XrManager#submitDepth off), the scene's depth does not reach the
+     * framebuffer (a camera's own frame passes render the scene into a target of their own), or
+     * the framebuffer has no depth buffer yet, the layer's depth is cleared to the far plane, so
+     * the compositor reprojects the view by its rotation alone rather than by unrelated contents.
+     *
+     * @param {any} sub - The view's sub-image, an entry of `device.xrSubImages` with a depth texture.
+     * @param {boolean} sceneDepth - Whether the layer takes the scene's depth, and the view's
+     * passes render it into the framebuffer.
+     */
+    beginXrViewDepth(sub, sceneDepth) {
+        const { samples, stencil } = this.renderTarget;
+        const layerStencil = sub.depthTexture.format.includes('stencil');
+        if (sceneDepth && samples === 1 && (!stencil || layerStencil) &&
+            this.assignDepthTexture(sub.depthTexture, sub.depthViewDescriptor)) {
+            this.xrViewDepth = 'direct';
+        } else if (sceneDepth && this.depthAttachment && this.assignDepthTexture(this.getXrDepthCopyTexture())) {
+            this.xrViewDepth = 'copy';
+        } else {
+            this.xrViewDepth = 'clear';
+        }
+    }
+
+    /**
+     * Completes the depth of an XR view after its passes have rendered: copies it into the
+     * projection layer's, or clears the layer's (see {@link WebgpuRenderTarget#beginXrViewDepth}).
+     *
+     * @param {any} sub - The view's sub-image, an entry of `device.xrSubImages` with a depth texture.
+     */
+    endXrViewDepth(sub) {
+        const device = /** @type {WebgpuGraphicsDevice} */ (this.renderTarget.device);
+        const { depthTexture, depthViewDescriptor } = sub;
+        if (this.xrViewDepth === 'copy') {
+            device.resolver.copyDepth(device.getCommandEncoder(), this.xrDepthCopyTexture, depthTexture, depthViewDescriptor);
+        } else if (this.xrViewDepth === 'clear') {
+            /** @type {GPURenderPassDepthStencilAttachment} */
+            const depthStencilAttachment = {
+                view: depthTexture.createView(depthViewDescriptor),
+                depthClearValue: 1,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store'
+            };
+            if (depthTexture.format.includes('stencil')) {
+                depthStencilAttachment.stencilLoadOp = 'clear';
+                depthStencilAttachment.stencilStoreOp = 'store';
+            }
+            const passEncoder = device.getCommandEncoder().beginRenderPass({
+                colorAttachments: [],
+                depthStencilAttachment
+            });
+            DebugHelper.setLabel(passEncoder, 'XrDepthClear-PassEncoder');
+            passEncoder.end();
+        }
+        this.xrViewDepth = null;
+    }
+
+    /**
+     * @returns {GPUTexture} The depth buffer XR views render into where they cannot render into
+     * the projection layer's depth (see {@link WebgpuRenderTarget#beginXrViewDepth}), created to
+     * match the render target's own.
+     * @private
+     */
+    getXrDepthCopyTexture() {
+        const { width, height, samples } = this.renderTarget;
+        const device = /** @type {WebgpuGraphicsDevice} */ (this.renderTarget.device);
+        const format = this.depthAttachment.internalFormat ?? this.depthAttachment.format;
+        let texture = this.xrDepthCopyTexture;
+        if (!texture || texture.width !== width || texture.height !== height ||
+            texture.sampleCount !== samples || texture.format !== format) {
+            if (texture) {
+                device.deferDestroy(texture);
+            }
+            texture = device.wgpu.createTexture({
+                size: [width, height, 1],
+                dimension: '2d',
+                sampleCount: samples,
+                format,
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+            });
+            DebugHelper.setLabel(texture, `${this.renderTarget.name}.xrDepthCopyTexture`);
+            this.xrDepthCopyTexture = texture;
+        }
+        return texture;
     }
 
     setColorAttachment(index, multisampledBuffer, format) {
