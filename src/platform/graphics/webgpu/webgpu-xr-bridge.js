@@ -26,6 +26,16 @@ class WebgpuXrBridge {
     _layer = null;
 
     /**
+     * The depth format the projection layer was created with, null for none. A runtime can hand
+     * out a depth texture regardless (Safari on visionOS does); it is rendered into only when
+     * asked for.
+     *
+     * @type {string|null}
+     * @private
+     */
+    _layerDepthFormat = null;
+
+    /**
      * Last known immersive color buffer size in pixels (updated in {@link WebgpuXrBridge#beginFrame}).
      *
      * @type {Vec2}
@@ -47,6 +57,7 @@ class WebgpuXrBridge {
     destroy(device) {
         this._binding = null;
         this._layer = null;
+        this._layerDepthFormat = null;
         this._cachedFramebufferSize.set(0, 0);
         device._clearXrState();
     }
@@ -97,6 +108,18 @@ class WebgpuXrBridge {
                 }
             }
 
+            // the view's depth, where the projection layer was created with one: the same array
+            // layer as its color, which the per-view passes render the scene's depth into for the
+            // compositor. The view keeps the texture's own format
+            const depthTexture = this._layerDepthFormat ? (sub.depthStencilTexture ?? null) : null;
+            const depthViewDescriptor = depthTexture ? {
+                dimension: '2d',
+                baseMipLevel: 0,
+                mipLevelCount: 1,
+                baseArrayLayer: viewDescriptor?.baseArrayLayer ?? 0,
+                arrayLayerCount: 1
+            } : null;
+
             // Prefer the view descriptor's format when present: WebXR runtimes may use it to
             // declare a per-eye view-format (e.g. bgra8unorm-srgb over a bgra8unorm texture) so
             // shader writes are gamma-encoded for the compositor. Falling back to the texture's
@@ -105,7 +128,9 @@ class WebgpuXrBridge {
                 colorTexture,
                 viewDescriptor,
                 viewport: sub.viewport,
-                viewFormat: viewDescriptor?.format ?? colorTexture.format
+                viewFormat: viewDescriptor?.format ?? colorTexture.format,
+                depthTexture,
+                depthViewDescriptor
             });
         }
 
@@ -188,6 +213,8 @@ class WebgpuXrBridge {
      * @param {number} options.framebufferScaleFactor - Resolved framebuffer scale factor.
      * @param {number} options.depthNear - Depth near plane.
      * @param {number} options.depthFar - Depth far plane.
+     * @param {string|null} [options.depthFormat] - Depth format of the projection layer
+     * (GPUTextureFormat), or null for a layer without depth.
      * @param {Function} [options.onBindingError] - Called if XRGPUBinding construction fails.
      */
     attachPresentation(session, options) {
@@ -214,17 +241,29 @@ class WebgpuXrBridge {
             scaleFactor: options.framebufferScaleFactor
         };
 
-        // Prefer texture-array for stereo (per-eye array layers); some runtimes only support 'texture'.
-        try {
-            this._layer = this._binding.createProjectionLayer({
-                ...layerOpts,
-                textureType: 'texture-array'
-            });
-        } catch {
-            this._layer = this._binding.createProjectionLayer({
-                ...layerOpts,
-                textureType: 'texture'
-            });
+        // Prefer texture-array for stereo (per-eye array layers); some runtimes only support
+        // 'texture'. With a depth format the layer carries the scene's depth too, which the
+        // compositor uses to reproject a frame that misses its display time for the head's
+        // movement as well as its rotation; a runtime that rejects the format gets a layer without.
+        const depthFormats = options.depthFormat ? [options.depthFormat, null] : [null];
+        this._layer = null;
+        this._layerDepthFormat = null;
+        for (const textureType of ['texture-array', 'texture']) {
+            for (const depthStencilFormat of depthFormats) {
+                try {
+                    this._layer = this._binding.createProjectionLayer({
+                        ...layerOpts,
+                        textureType,
+                        ...(depthStencilFormat ? { depthStencilFormat } : {})
+                    });
+                    this._layerDepthFormat = depthStencilFormat;
+                } catch (ex) {
+                    // the last combination, a plain texture without depth, has no fallback
+                    if (textureType === 'texture' && !depthStencilFormat) throw ex;
+                }
+                if (this._layer) break;
+            }
+            if (this._layer) break;
         }
 
         session.updateRenderState({
@@ -307,6 +346,7 @@ class WebgpuXrBridge {
 
         this._binding = null;
         this._layer = null;
+        this._layerDepthFormat = null;
         this._cachedFramebufferSize.set(0, 0);
         device._clearXrState();
 
