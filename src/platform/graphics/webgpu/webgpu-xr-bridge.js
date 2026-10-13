@@ -383,6 +383,7 @@ class WebgpuXrBridge {
                     framebufferScaleFactor: bridge._framebufferScaleFactor,
                     depthNear: rs.depthNear,
                     depthFar: rs.depthFar,
+                    depthFormat: bridge._depthFormat,
                     onBindingError: bridge._onBindingError
                 });
             } catch (ex) {
