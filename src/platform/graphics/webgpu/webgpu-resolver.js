@@ -4,7 +4,6 @@ import { Debug, DebugHelper } from '../../../core/debug.js';
 import { DebugGraphics } from '../debug-graphics.js';
 import { WebgpuDebug } from './webgpu-debug.js';
 import webgpuDepthResolve from '../shader-chunks/frag/webgpu-depth-resolve.js';
-import webgpuDepthCopy from '../shader-chunks/frag/webgpu-depth-copy.js';
 
 /**
  * @import { WebgpuGraphicsDevice } from './webgpu-graphics-device.js'
@@ -12,8 +11,8 @@ import webgpuDepthCopy from '../shader-chunks/frag/webgpu-depth-copy.js';
  */
 
 /**
- * A WebGPU helper class implementing custom resolve of multi-sampled textures, and copies of depth
- * textures into depth textures.
+ * A WebGPU helper class implementing custom resolve of multi-sampled textures, and clears of depth
+ * textures to the far plane.
  *
  * @ignore
  */
@@ -202,122 +201,6 @@ class WebgpuResolver {
     }
 
     /**
-     * @param {boolean} multisampled - Whether the source depth texture is multi-sampled.
-     * @returns {Shader} Shader copying a depth texture into a depth target.
-     * @private
-     */
-    getCopyShader(multisampled) {
-        const key = multisampled ? 'copy-multisampled' : 'copy';
-        let shader = this.shaderCache.get(key);
-        if (!shader) {
-            const code = `${multisampled ? '#define DEPTH_COPY_MULTISAMPLED\n' : ''}${webgpuDepthCopy}`;
-            shader = new Shader(this.device, {
-                name: `WebGPUResolverDepthShader-${key}`,
-                shaderLanguage: SHADERLANGUAGE_WGSL,
-                vshader: code,
-                fshader: code
-            });
-            this.shaderCache.set(key, shader);
-        }
-        return shader;
-    }
-
-    /**
-     * @param {GPUTextureFormat} format - Destination depth format.
-     * @param {boolean} multisampled - Whether the source depth texture is multi-sampled.
-     * @returns {GPURenderPipeline} Pipeline copying depth into the given format.
-     * @private
-     */
-    getCopyPipeline(format, multisampled) {
-        const key = `copy-${format}-${multisampled}`;
-        let pipeline = this.pipelineCache.get(key);
-        if (!pipeline) {
-
-            /** @type {WebgpuShader} */
-            const webgpuShader = this.getCopyShader(multisampled).impl;
-
-            pipeline = this.device.wgpu.createRenderPipeline({
-                layout: 'auto',
-                vertex: {
-                    module: webgpuShader.getVertexShaderModule(),
-                    entryPoint: webgpuShader.vertexEntryPoint
-                },
-                fragment: {
-                    module: webgpuShader.getFragmentShaderModule(),
-                    entryPoint: webgpuShader.fragmentEntryPoint,
-                    targets: []
-                },
-                primitive: {
-                    topology: 'triangle-strip'
-                },
-                depthStencil: {
-                    format: format,
-                    depthWriteEnabled: true,
-                    depthCompare: 'always'
-                }
-            });
-            DebugHelper.setLabel(pipeline, `RenderPipeline-DepthCopy-${format}-${multisampled}`);
-            this.pipelineCache.set(key, pipeline);
-        }
-        return pipeline;
-    }
-
-    /**
-     * Copies the depth of a depth texture into a depth texture of the same size which cannot be
-     * the destination of a texture copy, such as a WebXR projection layer's: the nearest of a
-     * multi-sampled source's samples. Stencil is not copied.
-     *
-     * @param {GPUCommandEncoder} commandEncoder - Command encoder to use for the copy.
-     * @param {GPUTexture} sourceTexture - Source depth texture, single or multi-sampled.
-     * @param {GPUTexture} destinationTexture - Destination single-sampled depth texture.
-     * @param {GPUTextureViewDescriptor} [destinationViewDescriptor] - The slice of the destination
-     * to copy into.
-     * @private
-     */
-    copyDepth(commandEncoder, sourceTexture, destinationTexture, destinationViewDescriptor) {
-
-        Debug.assert(destinationTexture.sampleCount === 1);
-        Debug.assert(sourceTexture.width === destinationTexture.width && sourceTexture.height === destinationTexture.height);
-
-        const device = this.device;
-        const multisampled = sourceTexture.sampleCount > 1;
-        const pipeline = this.getCopyPipeline(destinationTexture.format, multisampled);
-
-        DebugGraphics.pushGpuMarker(device, 'DEPTH_COPY');
-
-        const srcView = sourceTexture.createView({
-            dimension: '2d',
-            aspect: 'depth-only',
-            baseMipLevel: 0,
-            mipLevelCount: 1
-        });
-
-        const passEncoder = commandEncoder.beginRenderPass({
-            colorAttachments: [],
-            depthStencilAttachment: this.farDepthAttachment(destinationTexture, destinationViewDescriptor)
-        });
-        DebugHelper.setLabel(passEncoder, 'DepthCopy-PassEncoder');
-
-        const bindGroup = device.wgpu.createBindGroup({
-            layout: pipeline.getBindGroupLayout(0),
-            entries: [{
-                binding: 0,
-                resource: srcView
-            }]
-        });
-
-        passEncoder.setPipeline(pipeline);
-        passEncoder.setBindGroup(0, bindGroup);
-        passEncoder.draw(4);
-        passEncoder.end();
-
-        DebugGraphics.popGpuMarker(device);
-
-        // clear invalidated state
-        device.pipeline = null;
-    }
-
-    /**
      * Clears a depth texture, or a slice of one, to the far plane, along with its stencil if it
      * has one.
      *
@@ -327,22 +210,6 @@ class WebgpuResolver {
      * @private
      */
     clearDepth(commandEncoder, texture, viewDescriptor) {
-        const passEncoder = commandEncoder.beginRenderPass({
-            colorAttachments: [],
-            depthStencilAttachment: this.farDepthAttachment(texture, viewDescriptor)
-        });
-        DebugHelper.setLabel(passEncoder, 'DepthClear-PassEncoder');
-        passEncoder.end();
-    }
-
-    /**
-     * @param {GPUTexture} texture - The depth texture.
-     * @param {GPUTextureViewDescriptor} [viewDescriptor] - The slice of the texture.
-     * @returns {GPURenderPassDepthStencilAttachment} An attachment of the texture, cleared to the
-     * far plane and stored.
-     * @private
-     */
-    farDepthAttachment(texture, viewDescriptor) {
         /** @type {GPURenderPassDepthStencilAttachment} */
         const attachment = {
             view: texture.createView(viewDescriptor),
@@ -354,7 +221,13 @@ class WebgpuResolver {
             attachment.stencilLoadOp = 'clear';
             attachment.stencilStoreOp = 'store';
         }
-        return attachment;
+
+        const passEncoder = commandEncoder.beginRenderPass({
+            colorAttachments: [],
+            depthStencilAttachment: attachment
+        });
+        DebugHelper.setLabel(passEncoder, 'DepthClear-PassEncoder');
+        passEncoder.end();
     }
 }
 

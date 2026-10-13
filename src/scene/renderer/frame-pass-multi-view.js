@@ -42,15 +42,6 @@ class FramePassMultiView extends FramePass {
     children = [];
 
     /**
-     * True if the children are a camera's own frame passes (such as CameraFrame's), which render
-     * the scene into a target of their own and composite it onto the backbuffer without its depth,
-     * so the projection layer is given no depth of the scene for them.
-     *
-     * @type {boolean}
-     */
-    cameraPasses = false;
-
-    /**
      * @param {GraphicsDevice} graphicsDevice - The graphics device.
      */
     constructor(graphicsDevice) {
@@ -112,18 +103,8 @@ class FramePassMultiView extends FramePass {
             // refresh the backbuffer's color attachment view to point to the active eye's sub-image
             backBufferImpl?.assignColorTexture?.(sub.colorTexture, sub.viewFormat);
 
-            // and prepare the sub-image's depth, where the projection layer has one, so the
-            // compositor can reproject a late frame by depth rather than by rotation alone
-            if (sub.depthTexture) {
-                backBufferImpl?.beginXrViewDepth?.(sub, sub.sceneDepth && !this.cameraPasses);
-            }
-
             for (let c = 0; c < childCount; c++) {
                 children[c].render();
-            }
-
-            if (sub.depthTexture) {
-                backBufferImpl?.endXrViewDepth?.(sub);
             }
         }
 
@@ -134,9 +115,6 @@ class FramePassMultiView extends FramePass {
         device.xrCurrentViewIndex = -1;
         device.xrColorTextureViewDescriptor = null;
         device.xrColorTexture = savedXrColorTexture ?? null;
-
-        // passes after the wrapper render into the backbuffer's own depth buffer again
-        backBufferImpl?.assignDepthTexture?.(null);
 
         // restore the backbuffer to whatever it was bound to before the per-eye loop, but only if
         // it actually changed - skips the cost of a redundant view re-creation in the common XR

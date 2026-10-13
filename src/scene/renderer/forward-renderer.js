@@ -702,7 +702,7 @@ class ForwardRenderer extends Renderer {
 
                 // schedule frame passes from the camera, capturing them into a FramePassMultiView
                 // wrapper if the camera needs per-view replication
-                if (mv) frameGraph.beginMultiView(this.device, true);
+                if (mv) frameGraph.beginMultiView(this.device);
                 camera.camera.framePasses.forEach((renderPass) => {
                     frameGraph.addRenderPass(renderPass);
                 });

@@ -7,28 +7,29 @@ import { XrBridge } from '../../../../src/platform/graphics/xr-bridge.js';
 
 describe('WebgpuXrBridge', function () {
 
-    // the projection layers created, by their options
-    let layers;
     let previousBinding;
 
+    // the depth texture the runtime hands out with every view's sub-image, as Safari on visionOS
+    // does whether or not the layer asked for one, or null for none
+    let depthTexture;
+
     beforeEach(function () {
-        layers = [];
         previousBinding = globalThis.XRGPUBinding;
+        depthTexture = null;
         globalThis.XRGPUBinding = class {
             getPreferredColorFormat() {
                 return 'bgra8unorm';
             }
 
             createProjectionLayer(options) {
-                layers.push(options);
                 return { options };
             }
 
-            // a view's sub-image: a slice of the layer's color and, where the layer has one, depth
+            // a view's sub-image: a slice of the layer's color, and the depth
             getViewSubImage(layer, view) {
                 return {
                     colorTexture: { width: 64, height: 64, format: 'bgra8unorm' },
-                    depthStencilTexture: layer.options.depthStencilFormat ? { format: layer.options.depthStencilFormat } : null,
+                    depthStencilTexture: depthTexture,
                     viewport: { x: 0, y: 0, width: 64, height: 64 },
                     getViewDescriptor: () => ({ baseArrayLayer: view.index })
                 };
@@ -38,7 +39,6 @@ describe('WebgpuXrBridge', function () {
 
     afterEach(function () {
         globalThis.XRGPUBinding = previousBinding;
-        sinon.restore();
     });
 
     const createBridge = () => {
@@ -54,16 +54,12 @@ describe('WebgpuXrBridge', function () {
             },
             createXrBridgeImpl: bridge => new WebgpuXrBridge(bridge)
         };
-        return new XrBridge(device, new EventHandler());
-    };
-
-    const session = {
-        renderState: { depthNear: 0.1, depthFar: 1000 },
-        updateRenderState() {}
-    };
-
-    const attach = (bridge, depthFormat) => {
-        bridge.attachPresentation(session, { framebufferScaleFactor: 1, depthNear: 0.1, depthFar: 1000, depthFormat });
+        const bridge = new XrBridge(device, new EventHandler());
+        bridge.attachPresentation({
+            renderState: { depthNear: 0.1, depthFar: 1000 },
+            updateRenderState() {}
+        }, { framebufferScaleFactor: 1, depthNear: 0.1, depthFar: 1000 });
+        return bridge;
     };
 
     // an XR frame whose viewer pose has the given number of views
@@ -71,59 +67,24 @@ describe('WebgpuXrBridge', function () {
         getViewerPose: () => ({ views: Array.from({ length: viewCount }, (_, index) => ({ index })) })
     });
 
-    // the bridge recreates the presentation a task after the device is restored
-    const restore = async (bridge) => {
-        bridge.impl.onGraphicsDeviceLost();
-        bridge.impl.onGraphicsDeviceRestored();
-        await new Promise((resolve) => {
-            setTimeout(resolve, 0);
-        });
-    };
-
-    it('keeps the depth of the projection layer when the device is restored', async function () {
+    it('clears the depth of every view to the far plane', function () {
+        depthTexture = { format: 'depth24plus' };
         const bridge = createBridge();
-        attach(bridge, 'depth24plus');
-        expect(layers[0].depthStencilFormat).to.equal('depth24plus');
-
-        await restore(bridge);
-        expect(layers).to.have.length(2);
-        expect(layers[1].depthStencilFormat).to.equal('depth24plus');
-    });
-
-    it('keeps a projection layer without depth when the device is restored', async function () {
-        const bridge = createBridge();
-        attach(bridge, null);
-        expect(layers[0].depthStencilFormat).to.be.undefined;
-
-        await restore(bridge);
-        expect(layers).to.have.length(2);
-        expect(layers[1].depthStencilFormat).to.be.undefined;
-    });
-
-    it('clears the depth of a single view to the far plane', function () {
-        const bridge = createBridge();
-        attach(bridge, 'depth24plus');
-        bridge.impl.beginFrame(frame(1), {});
+        bridge.impl.beginFrame(frame(2), {});
 
         const { clearDepth } = bridge.device.resolver;
-        const sub = bridge.device.xrSubImages[0];
-        expect(clearDepth.calledOnce).to.be.true;
-        expect(clearDepth.firstCall.args[1]).to.equal(sub.depthTexture);
-        expect(clearDepth.firstCall.args[2]).to.equal(sub.depthViewDescriptor);
-    });
-
-    it('leaves the depth of several views to their passes', function () {
-        const bridge = createBridge();
-        attach(bridge, 'depth24plus');
-        bridge.impl.beginFrame(frame(2), {});
         expect(bridge.device.xrSubImages).to.have.length(2);
-        expect(bridge.device.resolver.clearDepth.called).to.be.false;
+        expect(clearDepth.calledTwice).to.be.true;
+        for (let view = 0; view < 2; view++) {
+            expect(clearDepth.getCall(view).args[1]).to.equal(depthTexture);
+            expect(clearDepth.getCall(view).args[2].baseArrayLayer).to.equal(view);
+        }
     });
 
     it('clears no depth for a view without one', function () {
         const bridge = createBridge();
-        attach(bridge, null);
         bridge.impl.beginFrame(frame(1), {});
+        expect(bridge.device.xrSubImages).to.have.length(1);
         expect(bridge.device.resolver.clearDepth.called).to.be.false;
     });
 });

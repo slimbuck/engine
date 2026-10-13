@@ -58,15 +58,6 @@ class XrBridge {
     _framebufferScaleFactor = 1;
 
     /**
-     * Depth format the session asked for in the last {@link XrBridge#attachPresentation}, or
-     * null for none, so a presentation recreated after the device is restored keeps it.
-     *
-     * @type {string|null}
-     * @private
-     */
-    _depthFormat = null;
-
-    /**
      * Callback when backend GPU binding construction fails.
      *
      * @type {Function|undefined}
@@ -101,7 +92,6 @@ class XrBridge {
 
             this._session = null;
             this._framebufferScaleFactor = 1;
-            this._depthFormat = null;
             this._onBindingError = undefined;
 
             this.device = null;
@@ -121,12 +111,11 @@ class XrBridge {
 
     /**
      * @param {XRSession} session - XR session.
-     * @param {object} options - Presentation options (backend-specific; includes framebufferScaleFactor, depthNear, depthFar, depthFormat).
+     * @param {object} options - Presentation options (backend-specific; includes framebufferScaleFactor, depthNear, depthFar).
      */
     attachPresentation(session, options) {
         this._session = session;
         this._framebufferScaleFactor = options.framebufferScaleFactor;
-        this._depthFormat = options.depthFormat ?? null;
         this._onBindingError = options.onBindingError;
 
         this.impl.attachPresentation(session, options);

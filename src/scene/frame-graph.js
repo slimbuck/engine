@@ -41,13 +41,10 @@ class FrameGraph {
      * {@link FramePassMultiView} until {@link FrameGraph#endMultiView} is called.
      *
      * @param {GraphicsDevice} device - The graphics device used to construct the wrapper.
-     * @param {boolean} [cameraPasses] - True if the passes are a camera's own frame passes (see
-     * {@link FramePassMultiView#cameraPasses}).
      */
-    beginMultiView(device, cameraPasses = false) {
+    beginMultiView(device) {
         Debug.assert(!this.multiview, 'FrameGraph.beginMultiView called while a scope is already open');
         this.multiview = new FramePassMultiView(device);
-        this.multiview.cameraPasses = cameraPasses;
     }
 
     /**
