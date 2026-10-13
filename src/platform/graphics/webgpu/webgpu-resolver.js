@@ -292,21 +292,9 @@ class WebgpuResolver {
             mipLevelCount: 1
         });
 
-        /** @type {GPURenderPassDepthStencilAttachment} */
-        const depthStencilAttachment = {
-            view: destinationTexture.createView(destinationViewDescriptor),
-            depthClearValue: 1,
-            depthLoadOp: 'clear',
-            depthStoreOp: 'store'
-        };
-        if (destinationTexture.format.includes('stencil')) {
-            depthStencilAttachment.stencilLoadOp = 'clear';
-            depthStencilAttachment.stencilStoreOp = 'store';
-        }
-
         const passEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [],
-            depthStencilAttachment
+            depthStencilAttachment: this.farDepthAttachment(destinationTexture, destinationViewDescriptor)
         });
         DebugHelper.setLabel(passEncoder, 'DepthCopy-PassEncoder');
 
@@ -327,6 +315,46 @@ class WebgpuResolver {
 
         // clear invalidated state
         device.pipeline = null;
+    }
+
+    /**
+     * Clears a depth texture, or a slice of one, to the far plane, along with its stencil if it
+     * has one.
+     *
+     * @param {GPUCommandEncoder} commandEncoder - Command encoder to use for the clear.
+     * @param {GPUTexture} texture - The depth texture.
+     * @param {GPUTextureViewDescriptor} [viewDescriptor] - The slice of the texture to clear.
+     * @private
+     */
+    clearDepth(commandEncoder, texture, viewDescriptor) {
+        const passEncoder = commandEncoder.beginRenderPass({
+            colorAttachments: [],
+            depthStencilAttachment: this.farDepthAttachment(texture, viewDescriptor)
+        });
+        DebugHelper.setLabel(passEncoder, 'DepthClear-PassEncoder');
+        passEncoder.end();
+    }
+
+    /**
+     * @param {GPUTexture} texture - The depth texture.
+     * @param {GPUTextureViewDescriptor} [viewDescriptor] - The slice of the texture.
+     * @returns {GPURenderPassDepthStencilAttachment} An attachment of the texture, cleared to the
+     * far plane and stored.
+     * @private
+     */
+    farDepthAttachment(texture, viewDescriptor) {
+        /** @type {GPURenderPassDepthStencilAttachment} */
+        const attachment = {
+            view: texture.createView(viewDescriptor),
+            depthClearValue: 1,
+            depthLoadOp: 'clear',
+            depthStoreOp: 'store'
+        };
+        if (texture.format.includes('stencil')) {
+            attachment.stencilLoadOp = 'clear';
+            attachment.stencilStoreOp = 'store';
+        }
+        return attachment;
     }
 }
 

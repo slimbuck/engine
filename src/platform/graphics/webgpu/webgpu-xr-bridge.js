@@ -136,6 +136,15 @@ class WebgpuXrBridge {
             });
         }
 
+        // A single view renders without the per-view scope of FramePassMultiView, which writes or
+        // clears the depth of each of several views, so its depth, where the runtime provides one,
+        // is cleared to the far plane here: the compositor then reprojects the view by its rotation
+        // alone rather than by contents nothing wrote
+        if (subImages.length === 1 && subImages[0].depthTexture) {
+            const { depthTexture, depthViewDescriptor } = subImages[0];
+            device.resolver.clearDepth(device.getCommandEncoder(), depthTexture, depthViewDescriptor);
+        }
+
         // First view: seeds device.xr* for WebGPU frameStart (runs before per-eye rendering) and
         // caches texture size for getFramebufferSize when the projection layer omits dimensions.
         const first = subImages[0];

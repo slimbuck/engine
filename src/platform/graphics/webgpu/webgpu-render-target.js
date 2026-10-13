@@ -389,23 +389,7 @@ class WebgpuRenderTarget {
         if (this.xrViewDepth === 'copy') {
             device.resolver.copyDepth(device.getCommandEncoder(), this.xrDepthCopyTexture, depthTexture, depthViewDescriptor);
         } else if (this.xrViewDepth === 'clear') {
-            /** @type {GPURenderPassDepthStencilAttachment} */
-            const depthStencilAttachment = {
-                view: depthTexture.createView(depthViewDescriptor),
-                depthClearValue: 1,
-                depthLoadOp: 'clear',
-                depthStoreOp: 'store'
-            };
-            if (depthTexture.format.includes('stencil')) {
-                depthStencilAttachment.stencilLoadOp = 'clear';
-                depthStencilAttachment.stencilStoreOp = 'store';
-            }
-            const passEncoder = device.getCommandEncoder().beginRenderPass({
-                colorAttachments: [],
-                depthStencilAttachment
-            });
-            DebugHelper.setLabel(passEncoder, 'XrDepthClear-PassEncoder');
-            passEncoder.end();
+            device.resolver.clearDepth(device.getCommandEncoder(), depthTexture, depthViewDescriptor);
         }
         this.xrViewDepth = null;
     }
