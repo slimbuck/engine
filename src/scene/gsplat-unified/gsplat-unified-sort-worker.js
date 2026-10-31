@@ -13,6 +13,12 @@ function UnifiedSortWorker(myself) {
     // Sorting mode: false = forward vector (directional), true = radial distance (for cubemaps)
     let _radialSort = false;
 
+    // The camera's near clip, which log spaced sort keys start inside of
+    let _nearClip = 0;
+
+    // Whether a directional sort's keys are log spaced: a perspective, non-fisheye camera
+    let _logDepthKeys = false;
+
     // Flag to warn only once about sortKey overflow
     let _warnedSortKeyOverflow = false;
 
@@ -117,11 +123,74 @@ function UnifiedSortWorker(myself) {
             });
     };
 
-    const evaluateSortKeysRadial = (sortParams, minDist, range, distances, countBuffer, centersData) => {
-        evaluateSortKeysCommon(sortParams, minDist, range, distances, countBuffer, centersData,
-            (centers, params, intervalStart, intervalEnd, compactIdx, invBinRange, minDist, range, distances, countBuffer) => {
+    // scratch for reading a float's bit pattern, see logSortKeys
+    const floatBits = new Float32Array(1);
+    const floatBitsI32 = new Int32Array(floatBits.buffer);
+
+    // Turns the distances written as floats over the key buffer into sort keys spaced by log
+    // distance, in place (same as the projector shader). A positive float's bit pattern grows with
+    // its value almost exactly as its log2, so keys taken from the bits give every doubling of
+    // distance the same number of keys, and splats far away cost no precision near the camera. The
+    // bits are measured from those of `nearValue`, and inverted so far splats sort first. Writing
+    // all the distances first costs less than reading the bits back a splat at a time.
+    const logSortKeys = (nearValue, farValue, maxKey, distances, countBuffer) => {
+        floatBits[0] = nearValue;
+        const minBits = floatBitsI32[0];
+        floatBits[0] = farValue;
+        const bitsRange = floatBitsI32[0] - minBits;
+        const keyScale = bitsRange > 0 ? maxKey / bitsRange : 0;
+
+        for (let i = 0; i < distances.length; i++) {
+            const keyFromNear = (distances[i] - minBits) * keyScale;
+            const sortKey = maxKey - (keyFromNear <= 0 ? 0 : (keyFromNear >= maxKey ? maxKey : keyFromNear >>> 0));
+            distances[i] = sortKey;
+            countBuffer[sortKey]++;
+        }
+    };
+
+    // Same as logSortKeys for signed depths, whose negative values (the splats behind the camera)
+    // take the last `behindKeys` keys, spaced the same way out to `behindValue`, so they sort after
+    // the rest in the order of their signed depth. A loop of its own, as the sign test slows the
+    // radial keys' loop down.
+    const signedLogSortKeys = (nearValue, farValue, behindValue, behindKeys, maxKey, distances, countBuffer) => {
+        floatBits[0] = nearValue;
+        const minBits = floatBitsI32[0];
+        floatBits[0] = farValue;
+        const bitsRange = floatBitsI32[0] - minBits;
+        floatBits[0] = behindValue;
+        const behindBitsRange = floatBitsI32[0] - minBits;
+
+        // the nearest key in front of the camera, and the last behind it, counted from the first
+        const nearestKey = maxKey - behindKeys;
+        const lastBehindKey = behindKeys - 1;
+        const keyScale = bitsRange > 0 ? nearestKey / bitsRange : 0;
+        const behindKeyScale = behindBitsRange > 0 ? lastBehindKey / behindBitsRange : 0;
+
+        for (let i = 0; i < distances.length; i++) {
+            const bits = distances[i];
+            let sortKey;
+            if (bits < 0x80000000) {
+                const keyFromNear = (bits - minBits) * keyScale;
+                sortKey = nearestKey - (keyFromNear <= 0 ? 0 : (keyFromNear >= nearestKey ? nearestKey : keyFromNear >>> 0));
+            } else {
+                // a negative float: the bits of its magnitude, without the sign
+                const keyFromNear = ((bits & 0x7fffffff) - minBits) * behindKeyScale;
+                sortKey = nearestKey + 1 + (keyFromNear <= 0 ? 0 : (keyFromNear >= lastBehindKey ? lastBehindKey : keyFromNear >>> 0));
+            }
+            distances[i] = sortKey;
+            countBuffer[sortKey]++;
+        }
+    };
+
+    // Radial keys from the squared distance, whose bits follow log2 as well.
+    const evaluateSortKeysRadial = (sortParams, nearDist, maxDist, maxKey, distances, countBuffer, centersData) => {
+        const squaredDistances = new Float32Array(distances.buffer, 0, distances.length);
+
+        evaluateSortKeysCommon(sortParams, 0, maxDist, distances, countBuffer, centersData,
+            (centers, params, intervalStart, intervalEnd, compactIdx) => {
                 // camera related params
                 const { transformedPosition, scale } = params;
+                const scaleSq = scale * scale;
 
                 // camera position in local space
                 const cx = transformedPosition.x;
@@ -134,23 +203,41 @@ function UnifiedSortWorker(myself) {
                     const dy = centers[srcIndex + 1] - cy;
                     const dz = centers[srcIndex + 2] - cz;
 
-                    const distSq = dx * dx + dy * dy + dz * dz;
-                    // World-space radial distance from camera
-                    const dist = Math.sqrt(distSq) * scale;
-
-                    // Invert distance so far objects get small keys (rendered first, back-to-front)
-                    const invertedDist = range - dist;
-                    // Bin-based mapping
-                    const d = invertedDist * invBinRange;
-                    const bin = d >>> 0;
-                    const sortKey = (binBase[bin] + binDivider[bin] * (d - bin)) >>> 0;
-
-                    distances[compactIdx++] = sortKey;
-                    countBuffer[sortKey]++;
+                    // World-space squared distance from camera
+                    squaredDistances[compactIdx++] = (dx * dx + dy * dy + dz * dz) * scaleSq;
                 }
 
                 return compactIdx;
             });
+
+        logSortKeys(nearDist * nearDist, maxDist * maxDist, maxKey, distances, countBuffer);
+    };
+
+    // Depth keys of a perspective camera, from the signed depth in front of it. The sort direction
+    // is the camera's +Z, which points backwards, so the range runs from -minDist in front of the
+    // camera to maxDist behind it. Splats closer than `nearDist` on either side share a key. A shader
+    // can move splats from behind the camera into view (the sort reads the centers before any
+    // modifier), so those keep their order too, in a sixteenth of the keys.
+    const evaluateSortKeysDepth = (sortParams, nearDist, minDist, maxDist, maxKey, distances, countBuffer, centersData) => {
+        const depths = new Float32Array(distances.buffer, 0, distances.length);
+
+        evaluateSortKeysCommon(sortParams, minDist, -minDist, distances, countBuffer, centersData,
+            (centers, params, intervalStart, intervalEnd, compactIdx) => {
+                // camera related params
+                const { transformedDirection, offset, scale } = params;
+                const sdx = transformedDirection.x * scale;
+                const sdy = transformedDirection.y * scale;
+                const sdz = transformedDirection.z * scale;
+
+                // Process each center in this interval
+                for (let srcIndex = intervalStart; srcIndex < intervalEnd; srcIndex += 3) {
+                    depths[compactIdx++] = -(centers[srcIndex] * sdx + centers[srcIndex + 1] * sdy + centers[srcIndex + 2] * sdz + offset);
+                }
+
+                return compactIdx;
+            });
+
+        signedLogSortKeys(nearDist, -minDist, maxDist, (maxKey + 1) >>> 4, maxKey, distances, countBuffer);
     };
 
     const countingSort = (bucketCount, countBuffer, numVertices, distances, order) => {
@@ -267,7 +354,14 @@ function UnifiedSortWorker(myself) {
         // calculate number of bits needed to store sorting result
         const compareBits = Math.max(10, Math.min(20, Math.round(Math.log2(numVertices / 4))));
 
-        const bucketCount = 2 ** compareBits + 1;
+        // Radial keys, and the depth keys of a perspective camera, are log spaced (an orthographic
+        // or fisheye camera can draw splats at or behind it, so its depth keys keep the bins). 16
+        // bits already give every doubling of distance a few thousand keys; more only spread the
+        // counting sort over a count table too big for the cache
+        const logKeys = _radialSort || _logDepthKeys;
+        const keyBits = logKeys ? Math.min(compareBits, 16) : compareBits;
+
+        const bucketCount = 2 ** keyBits + 1;
 
         // create distance buffer
         if (distances?.length !== numVertices) {
@@ -280,19 +374,26 @@ function UnifiedSortWorker(myself) {
             countBuffer.fill(0);
         }
 
-        const range = maxDist - minDist;
-
-        // Set up camera-relative bin weighting for near-camera precision (using shared utility)
-        // eslint-disable-next-line no-undef
-        const cameraBin = GSplatSortBinWeights.computeCameraBin(_radialSort, minDist, range);
-
-        // Compute bin weights locally using shared utility
-        const binWeights = binWeightsUtil.compute(cameraBin, bucketCount);
-        unpackBinWeights(binWeights);
+        // Log keys start ten doublings inside the near clip: the splats closer than it are drawn
+        // too, with their depth clamped, so they need an order. An orthographic near clip can be
+        // zero or negative, so a share of the range stands in for it then (radial only).
+        const nearDist = (_nearClip > 0 ? _nearClip : maxDist * 1e-6) / 1024;
 
         if (_radialSort) {
-            evaluateSortKeysRadial(sortParams, minDist, range, distances, countBuffer, centersData);
+            evaluateSortKeysRadial(sortParams, nearDist, maxDist, bucketCount - 1, distances, countBuffer, centersData);
+        } else if (logKeys) {
+            evaluateSortKeysDepth(sortParams, nearDist, minDist, maxDist, bucketCount - 1, distances, countBuffer, centersData);
         } else {
+            const range = maxDist - minDist;
+
+            // Set up camera-relative bin weighting for near-camera precision (using shared utility)
+            // eslint-disable-next-line no-undef
+            const cameraBin = GSplatSortBinWeights.computeCameraBin(minDist, range);
+
+            // Compute bin weights locally using shared utility
+            const binWeights = binWeightsUtil.compute(cameraBin, bucketCount);
+            unpackBinWeights(binWeights);
+
             evaluateSortKeysLinear(sortParams, minDist, range, distances, countBuffer, centersData);
         }
 
@@ -362,6 +463,8 @@ function UnifiedSortWorker(myself) {
             // sort
             case 'sort': {
                 _radialSort = msgData.radialSorting || false;
+                _nearClip = msgData.nearClip;
+                _logDepthKeys = msgData.logDepthKeys || false;
                 const order = new Uint32Array(msgData.order);
                 sort(msgData.sortParams, order, centersData);
                 break;
